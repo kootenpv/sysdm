@@ -1,7 +1,7 @@
 import sys
 
 __project__ = "sysdm"
-__version__ = "0.0.2"
+__version__ = "0.0.3"
 __repo__ = "https://github.com/kootenpv/sysdm"
 
 

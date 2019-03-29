@@ -17,8 +17,8 @@ It gives you the best from screen, systemctl and journalctl.
 
 ### Usage
 
-    sudo sysdm create myfile.py
-    sysdm view myfile.py
+    sudo sysdm create myfile.py # creates and enables a new service file
+    sysdm view myfile.py        # tails the service logs and allows interaction
 
 ### Features
 
