@@ -8,4 +8,4 @@ def get_output(cmd):
 
 
 def is_unit_running(unit):
-    return get_output(f'systemctl is-active {unit}') == "active"
+    return get_output('systemctl is-active {unit}'.format(unit=unit)) == "active"
