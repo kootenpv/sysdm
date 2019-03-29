@@ -16,5 +16,9 @@ def watch(args):
         if any([x in filename for x in args.exclude_patterns]):
             continue
         if any([filename.endswith(x) for x in args.extensions]):
-            print(f"File {filename} changed in {path}, restarting service")
+            print(
+                "File {filename} changed in {path}, restarting service".format(
+                    filename=filename, path=path
+                )
+            )
             sys.exit(0)

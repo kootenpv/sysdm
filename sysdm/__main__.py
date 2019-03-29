@@ -62,10 +62,10 @@ def main():
         show(args)
     elif args.command == "view":
         service_name = args.fname.replace(".", "_")
-        cmd = f"systemctl is-enabled {args.fname.replace('.', '_')} || echo 'broken'"
+        cmd = "systemctl is-enabled {} || echo 'broken'".format(args.fname.replace('.', '_'))
         is_broken = get_output(cmd) == "broken"
         if is_broken:
-            print(f"First start by running 'sudo sysdm create {args.fname}'")
+            print("First start by running 'sudo sysdm create {}'".format(args.fname))
             sys.exit(0)
         run(service_name)
     elif args.command == "show_unit":
@@ -79,7 +79,7 @@ def main():
             for unit in units:
                 is_running = is_unit_running(unit)
                 status = "✓" if is_running else "✗"
-                formatted_options.append(f"{status} {unit}")
+                formatted_options.append("{status} {unit}".format(status=status, unit=unit))
             quit = "-- Quit --"
             formatted_options.append(quit)
             chosen, index = pick(formatted_options, "These are known units:")

@@ -40,7 +40,7 @@ def run(unit):
                 is_running = is_unit_running(unit)
                 with t.location(OFFSET, 0):
                     status = t.green("ACTIVE") if is_running else t.red("INACTIVE")
-                    print(f"Unit: {t.bold(unit)} Status: {status}")
+                    print("Unit: {} Status: {}".format(t.bold(unit), status))
 
                 with t.location(t.width - len(logo + additional), 0):
                     print(t.bold(logo + additional))
@@ -64,7 +64,9 @@ def run(unit):
                     n = t.height - BANNER_OFFSET
                     w = t.width
                     g = "--grep " + grep if grep else ""
-                    cmd = f"journalctl -u {unit} -u {unit}_monitor -n {n+50} --no-pager --no-hostname {g}"
+                    cmd = "journalctl -u {} -u {}_monitor -n {n} --no-pager --no-hostname {g}".format(
+                        unit, unit, n=n + 50, g=g
+                    )
                     output = get_output(cmd)
                     outp = []
                     for line in output.split("\n"):
@@ -94,18 +96,18 @@ def run(unit):
                 elif inp == "S":
                     print(t.clear())
                     if is_running:
-                        print(f"Stopping unit {unit}")
-                        get_output(f"systemctl stop {unit}")
+                        print("Stopping unit {unit}".format(unit=unit))
+                        get_output("systemctl stop {unit}".format(unit=unit))
                         resized = [True]
                     else:
-                        print(f"Starting unit {unit}")
-                        get_output(f"systemctl start {unit}")
+                        print("Starting unit {unit}".format(unit=unit))
+                        get_output("systemctl start {unit}".format(unit=unit))
                         resized = [True]
 
                 elif inp == "R":
                     print(t.clear())
-                    print(f"Restarting unit {unit}")
-                    get_output(f"systemctl restart {unit}")
+                    print("Restarting unit {unit}".format(unit=unit))
+                    get_output("systemctl restart {unit}".format(unit=unit))
                     resized = [True]
                 elif inp == " ":
                     print(t.clear())
