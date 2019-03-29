@@ -38,7 +38,9 @@ def get_exclusions_from_filename(fname):
 
 def create_service_template(args):
     user = get_output("echo $SUDO_USER")
-    user_group = get_output("""getent group | grep $SUDO_GID: | awk -F ":" '{ print $1}'""")
+    user_group = get_output("""getent group | grep $SUDO_GID: | awk -F ":" '{ print $1}'""").split(
+        "\n"
+    )[0]
     extra_args = " ".join(args.extra_args)
     cmd = get_cmd_from_filename(args.fname)
     here = os.path.abspath(".")

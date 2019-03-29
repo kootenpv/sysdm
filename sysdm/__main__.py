@@ -62,11 +62,12 @@ def main():
         show(args)
     elif args.command == "view":
         service_name = args.fname.replace(".", "_")
-        cmd = "systemctl is-enabled {} || echo 'broken'".format(args.fname.replace('.', '_'))
-        is_broken = get_output(cmd) == "broken"
-        if is_broken:
-            print("First start by running 'sudo sysdm create {}'".format(args.fname))
-            sys.exit(0)
+        # # requires too recent version of systemctl (works on 241, not on 237)
+        # cmd = "systemctl is-enabled {} || echo 'broken'".format(args.fname.replace('.', '_'))
+        # is_broken = get_output(cmd) == "broken"
+        # if is_broken:
+        #     print("First start by running 'sudo sysdm create {}'".format(args.fname))
+        #     sys.exit(0)
         run(service_name)
     elif args.command == "show_unit":
         show(args)
