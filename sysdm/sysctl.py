@@ -82,7 +82,9 @@ def create_service_template(args):
 
 def create_service_monitor_template(args):
     user = get_output("echo $SUDO_USER")
-    user_group = get_output("""getent group | grep $SUDO_GID: | awk -F ":" '{ print $1}'""")
+    user_group = get_output("""getent group | grep $SUDO_GID: | awk -F ":" '{ print $1}'""").split(
+        "\n"
+    )[0]
     cmd = get_output("which sysdm")
     here = os.path.abspath(".")
     extensions = args.extensions or get_extensions_from_filename(args.fname)
