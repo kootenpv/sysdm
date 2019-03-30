@@ -82,7 +82,7 @@ def run(unit):
                         if "Started" in l:
                             l = t.green(l)
                         outp.append(l)
-                    print("\n".join(outp[: n - 1]))
+                    print("\n".join(outp[-n + 1 :]))
 
                 with t.cbreak():
                     inp = t.inkey(0.3)
