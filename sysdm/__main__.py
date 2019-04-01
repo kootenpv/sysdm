@@ -1,9 +1,10 @@
 import sys
+import os
 from sysdm.sysctl import install, show, ls
 from sysdm.file_watcher import watch
-from sysdm.utils import get_output, is_unit_running
+from sysdm.utils import get_output, is_unit_running, is_unit_enabled
 from sysdm.runner import run
-from pick import pick
+from pick import Picker
 
 
 def get_argparser(args=None):
@@ -62,12 +63,13 @@ def main():
         show(args)
     elif args.command == "view":
         service_name = args.fname.replace(".", "_")
-        # # requires too recent version of systemctl (works on 241, not on 237)
-        # cmd = "systemctl is-enabled {} || echo 'broken'".format(args.fname.replace('.', '_'))
-        # is_broken = get_output(cmd) == "broken"
-        # if is_broken:
-        #     print("First start by running 'sudo sysdm create {}'".format(args.fname))
-        #     sys.exit(0)
+        if not os.path.exists(args.systempath + "/" + service_name + ".service"):
+            print(
+                "Service file does not exist. You can start by running:\n\n    sudo sysdm create {}\n\nto create a service or run:\n\n    sysdm ls\n\nto see the services already created by sysdm.".format(
+                    args.fname
+                )
+            )
+            sys.exit(1)
         run(service_name)
     elif args.command == "show_unit":
         show(args)
@@ -76,16 +78,33 @@ def main():
     elif args.command == "ls":
         units = ls(args)
         if units:
-            formatted_options = []
+            options = []
             for unit in units:
                 is_running = is_unit_running(unit)
-                status = "✓" if is_running else "✗"
-                formatted_options.append("{status} {unit}".format(status=status, unit=unit))
+                is_enabled = is_unit_enabled(unit)
+                running = "✓" if is_running else "✗"
+                enabled = "✓" if is_enabled else "✗"
+                options.append((unit, running, enabled))
+
+            pad = "{}|    {}    |    {}   "
+            offset = max([len(x[0]) for x in options]) + 3
+            formatted_options = [pad.format(x.ljust(offset), r, e) for x, r, e in options]
             quit = "-- Quit --"
+            formatted_options.append(" ")
             formatted_options.append(quit)
-            chosen, index = pick(formatted_options, "These are known units:")
-            if chosen == quit:
-                return
+            title = "These are known units:\n\n{}| running | enabled".format(" " * (offset + 2))
+            default_index = 0
+            while True:
+                p = Picker(formatted_options, title, default_index=default_index)
+                p.register_custom_handler(ord('q'), lambda _: sys.exit(0))
+                chosen, index = p.start()
+                if chosen == quit:
+                    return
+                elif chosen == " ":
+                    default_index = index
+                    continue
+                else:
+                    break
             run(units[index])
         else:
             print("sysdm knows of no units. Why don't you make one? `sudo sysdm create myfile.py`")

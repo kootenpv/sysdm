@@ -1,7 +1,7 @@
 import re
 import signal
 from blessed import Terminal
-from sysdm.utils import get_output, is_unit_running
+from sysdm.utils import get_output, is_unit_running, is_unit_enabled
 
 
 def run(unit):
@@ -9,10 +9,10 @@ def run(unit):
     print(t.enter_fullscreen())
 
     mapping = [
-        "[R] Restart service                    [X] Set delay",
+        "[R] Restart service                    [T] Enable on startup",
         "[S] Stop service                       [X] Toggle autorestart",
-        "[q] Quit (leave running)               [X] Watch a new pattern",
-        "[G] Grep for a pattern                 [X] Unwatch an existing pattern",
+        "[q] Quit (keep running in background)  [X] Watch a new pattern",
+        "[G] Grep (filter) a pattern            [X] Unwatch an existing pattern",
     ]
 
     OFFSET = 12
@@ -38,9 +38,11 @@ def run(unit):
                 resized = []
                 it = 0
                 is_running = is_unit_running(unit)
+                is_enabled = is_unit_enabled(unit)
                 with t.location(OFFSET, 0):
                     status = t.green("ACTIVE") if is_running else t.red("INACTIVE")
-                    print("Unit: {} Status: {}".format(t.bold(unit), status))
+                    enabled = t.green("ENABLED") if is_enabled else t.red("DISABLED")
+                    print("Unit: {} Now: {} On Startup: {}".format(t.bold(unit), status, enabled))
 
                 with t.location(t.width - len(logo + additional), 0):
                     print(t.bold(logo + additional))
@@ -52,6 +54,8 @@ def run(unit):
                     with t.location(0, num + 2):
                         if not is_running:
                             line = line.replace("Stop service ", "Start service")
+                        if is_enabled:
+                            line = line.replace("Enable on startup", "Disable on startup")
                         line = line.replace("[", "[" + t.green).replace("]", t.normal + "]")
                         print(" " * OFFSET + (line + " " * t.width)[: t.width + 3])
 
@@ -92,22 +96,28 @@ def run(unit):
                         grep = ""
                     else:
                         break
-
                 elif inp == "S":
                     print(t.clear())
                     if is_running:
                         print("Stopping unit {unit}".format(unit=unit))
                         get_output("systemctl stop {unit}".format(unit=unit))
-                        resized = [True]
                     else:
                         print("Starting unit {unit}".format(unit=unit))
                         get_output("systemctl start {unit}".format(unit=unit))
-                        resized = [True]
-
+                    resized = [True]
                 elif inp == "R":
                     print(t.clear())
                     print("Restarting unit {unit}".format(unit=unit))
                     get_output("systemctl restart {unit}".format(unit=unit))
+                    resized = [True]
+                elif inp == "T":
+                    print(t.clear())
+                    if is_enabled:
+                        print("Disabling unit {unit} on startup".format(unit=unit))
+                        get_output("systemctl disable {unit}".format(unit=unit))
+                    else:
+                        print("Enabling unit {unit} on startup".format(unit=unit))
+                        get_output("systemctl enable {unit}".format(unit=unit))
                     resized = [True]
                 elif inp == " ":
                     print(t.clear())

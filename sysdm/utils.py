@@ -9,3 +9,7 @@ def get_output(cmd):
 
 def is_unit_running(unit):
     return get_output('systemctl is-active {unit}'.format(unit=unit)) == "active"
+
+
+def is_unit_enabled(unit):
+    return get_output('systemctl is-enabled {unit}'.format(unit=unit)) == "enabled"
