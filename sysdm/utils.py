@@ -13,3 +13,25 @@ def is_unit_running(unit):
 
 def is_unit_enabled(unit):
     return get_output('systemctl is-enabled {unit}'.format(unit=unit)) == "enabled"
+
+
+def read_command_from_unit(systempath, service_name):
+    with open(systempath + "/" + service_name + ".service") as f:
+        for line in f.read().split("\n"):
+            if line.startswith("ExecStart="):
+                return line[10:].strip()
+
+
+def read_ps_aux_by_unit(systempath, unit):
+    cmd = read_command_from_unit(systempath, unit)
+    z = get_output("ps ax -o pid,%cpu,%mem,ppid,thcount,args -ww")
+
+    for num, line in enumerate(z.split("\n")):
+        if num == 0:
+            continue
+        pid, cpu, mem, ppid, thcount, *rest = line.split()
+        if ppid != "1":
+            continue
+        rest = " ".join(rest)
+        if cmd.endswith(rest) or rest.endswith(cmd):
+            return pid, cpu, mem, thcount

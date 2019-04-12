@@ -1,10 +1,11 @@
 import re
+import time
 import signal
 from blessed import Terminal
-from sysdm.utils import get_output, is_unit_running, is_unit_enabled
+from sysdm.utils import get_output, is_unit_running, is_unit_enabled, read_ps_aux_by_unit
 
 
-def run(unit):
+def run(unit, systempath):
     t = Terminal()
     print(t.enter_fullscreen())
 
@@ -23,12 +24,13 @@ def run(unit):
     logo = "[sysdm]"
     # seen = set()
 
-    BANNER_OFFSET = len(mapping) + 1 + 2  # mapping, banner, in between lines
+    Y_BANNER_OFFSET = len(mapping) + 1 + 2  # mapping, banner, in between lines
 
     additional = ""
     grep = ""
 
     it = 0
+    x_banner_offset = 0
     try:
         while True:
             y, x = t.get_location()
@@ -42,7 +44,9 @@ def run(unit):
                 with t.location(OFFSET, 0):
                     status = t.green("ACTIVE") if is_running else t.red("INACTIVE")
                     enabled = t.green("ENABLED") if is_enabled else t.red("DISABLED")
-                    print("Unit: {} Now: {} On Startup: {}".format(t.bold(unit), status, enabled))
+                    line = "Unit: {} Now: {} On Startup: {}".format(t.bold(unit), status, enabled)
+                    x_banner_offset = len(line)
+                    print(line)
 
                 with t.location(t.width - len(logo + additional), 0):
                     print(t.bold(logo + additional))
@@ -64,8 +68,18 @@ def run(unit):
 
             with t.hidden_cursor():
 
-                with t.location(0, BANNER_OFFSET):
-                    n = t.height - BANNER_OFFSET
+                if is_running and t.width - x_banner_offset > 50:
+                    with t.location(x_banner_offset, 0):
+                        ps_info = read_ps_aux_by_unit(systempath, unit)
+                        if ps_info is not None:
+                            res = "| {} | PID={} | CPU {:>4}% | MEM {:>4}% | NTHREADS={}".format(
+                                time.asctime(), *ps_info
+                            )
+                            print(res)
+
+            with t.hidden_cursor():
+                with t.location(0, Y_BANNER_OFFSET):
+                    n = t.height - Y_BANNER_OFFSET
                     w = t.width
                     g = "--grep " + grep if grep else ""
                     cmd = "journalctl -u {} -u {}_monitor -n {n} --no-pager --no-hostname {g}".format(

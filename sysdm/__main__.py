@@ -70,7 +70,7 @@ def main():
                 )
             )
             sys.exit(1)
-        run(service_name)
+        run(service_name, args.systempath)
     elif args.command == "show_unit":
         show(args)
     elif args.command == "watch":
@@ -105,7 +105,7 @@ def main():
                     continue
                 else:
                     break
-            run(units[index])
+            run(units[index], args.systempath)
         else:
             print("sysdm knows of no units. Why don't you make one? `sudo sysdm create myfile.py`")
 

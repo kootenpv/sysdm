@@ -6,7 +6,7 @@ from sysdm.utils import get_output
 def get_cmd_from_filename(fname):
     cmd = None
     if fname.endswith(".py"):
-        cmd = get_output("which python") + " -u"
+        cmd = get_output("which python3") or get_output("which python") + " -u"
     elif fname.endswith(".sh"):
         cmd = get_output("which bash")
     else:
