@@ -9,6 +9,8 @@ def get_cmd_from_filename(fname):
         cmd = get_output("which python3") or get_output("which python") + " -u"
     elif fname.endswith(".sh"):
         cmd = get_output("which bash")
+    elif fname.endswith(".js"):
+        cmd = get_output("which node")
     else:
         raise ValueError("File extension of file '{fname}' not supported".format(fname=fname))
     return cmd.strip()
@@ -20,6 +22,8 @@ def get_extensions_from_filename(fname):
         cmd = [".py"]
     elif fname.endswith(".sh"):
         cmd = [".sh"]
+    elif fname.endswith(".js"):
+        cmd = [".js"]
     else:
         raise ValueError("File extension of file '{fname}' not supported".format(fname=fname))
     return cmd
@@ -31,6 +35,8 @@ def get_exclusions_from_filename(fname):
         cmd = ["flycheck_", "$", "#"]
     elif fname.endswith(".sh"):
         cmd = []
+    if fname.endswith(".js"):
+        cmd = ["flycheck_", "$", "#"]
     else:
         raise ValueError("File extension of file '{fname}' not supported".format(fname=fname))
     return cmd
