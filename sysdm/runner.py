@@ -34,7 +34,7 @@ def run(unit, systempath):
     x_banner_offset = 0
     left_offset = 0
     log_offset = 0
-    paused_output = False
+    timer = None
 
     with t.hidden_cursor():
         try:
@@ -44,14 +44,25 @@ def run(unit, systempath):
                 if resized:
                     print(t.clear())
                     resized = []
-                    is_running = is_unit_running(unit)
+                    timed = is_unit_running(unit + ".timer")
+                    is_running = is_unit_running(unit) or timed
                     is_enabled = is_unit_enabled(unit)
-                    with t.location(OFFSET, 0):
-                        status = t.green("ACTIVE") if is_running else t.red("INACTIVE")
-                        enabled = t.green("ENABLED") if is_enabled else t.red("DISABLED")
-                        line = "Unit: {} Now: {} On Startup: {}".format(
-                            t.bold(unit), status, enabled
+                    if timed:
+                        timer_text = ""
+                        while not timer_text:
+                            status = get_output("systemctl list-timers " + unit + ".timer")
+                            timer_text = status.split("\n")[1][4 : status.index("LEFT") - 2]
+                            status = "Next: " + t.green(timer_text)
+                            timer = datetime.strptime(timer_text, "%Y-%m-%d %H:%M:%S %Z")
+                    else:
+                        status = (
+                            "Now: " + t.green("ACTIVE")
+                            if is_running
+                            else "Now: " + t.red("INACTIVE")
                         )
+                    with t.location(OFFSET, 0):
+                        enabled = t.green("ENABLED") if is_enabled else t.red("DISABLED")
+                        line = "Unit: {} {} On Startup: {}".format(t.bold(unit), status, enabled)
                         x_banner_offset = len(line)
                         print(line)
 
@@ -73,6 +84,9 @@ def run(unit, systempath):
                     with t.location(0, 6):
                         print(t.center("-" * (t.width - 16)))
 
+                # if timer just expired, refresh to get the new date
+                if timer is not None and datetime.now() > timer:
+                    resized = [True]
                 if t.width - x_banner_offset > 50:
                     res = "| {} |".format(time.asctime())
                     if is_running:
@@ -133,10 +147,12 @@ def run(unit, systempath):
                     print(t.clear())
                     if is_running:
                         print("Stopping unit {unit}".format(unit=unit))
-                        get_output("systemctl stop {unit}".format(unit=unit))
+                        get_output("sudo systemctl stop {unit}".format(unit=unit))
+                        get_output("sudo systemctl stop {unit}.timer".format(unit=unit))
                     else:
                         print("Starting unit {unit}".format(unit=unit))
-                        get_output("systemctl start {unit}".format(unit=unit))
+                        get_output("sudo systemctl start {unit}".format(unit=unit))
+                        get_output("sudo systemctl start {unit}.timer".format(unit=unit))
                     resized = [True]
                 elif inp == "R":
                     print(t.clear())
@@ -147,10 +163,12 @@ def run(unit, systempath):
                     print(t.clear())
                     if is_enabled:
                         print("Disabling unit {unit} on startup".format(unit=unit))
-                        get_output("systemctl disable {unit}".format(unit=unit))
+                        get_output("sudo systemctl disable {unit}".format(unit=unit))
+                        get_output("sudo systemctl disable {unit}.timer".format(unit=unit))
                     else:
                         print("Enabling unit {unit} on startup".format(unit=unit))
-                        get_output("systemctl enable {unit}".format(unit=unit))
+                        get_output("sudo systemctl enable {unit}".format(unit=unit))
+                        get_output("sudo systemctl enable {unit}.timer".format(unit=unit))
                     resized = [True]
                 elif inp == " ":
                     print(t.clear())

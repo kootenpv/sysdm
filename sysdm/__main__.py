@@ -1,10 +1,10 @@
 import sys
 import os
+from pick import Picker
 from sysdm.sysctl import install, show, ls, delete
 from sysdm.file_watcher import watch
 from sysdm.utils import get_output, is_unit_running, is_unit_enabled
 from sysdm.runner import run
-from pick import Picker
 
 
 def get_argparser(args=None):
@@ -12,24 +12,50 @@ def get_argparser(args=None):
     import argparse
 
     parser = argparse.ArgumentParser(description='sysdm')
+
     subparsers = parser.add_subparsers(dest="command")
     create = subparsers.add_parser('create')
     create.add_argument(
-        '--systempath', default="/etc/systemd/system", help='Folder where to save the service file'
+        '--systempath',
+        default="/etc/systemd/system",
+        help='Folder where to save the service file, default: %(default)s',
     )
     create.add_argument(
         '--norestart', action='store_true', help='Whether to prevent auto restart on error'
     )
     create.add_argument('fname', help='File/cmd to run')
-    create.add_argument('extra_args', help='File to run', nargs="*")
+    create.add_argument('extra_args', help='Args to pass to command to be run', nargs="*")
     create.add_argument(
-        '--delay', '-d', default=0.1, help='Set a delay in the unit file before attempting restart.'
+        '--delay',
+        '-d',
+        default=0.2,
+        help='Set a delay in the unit file before attempting restart, default: %(default)s',
     )
     create.add_argument(
         '--extensions', '-w', help='Patterns of files to watch (by default inferred)', nargs='+'
     )
     create.add_argument(
         '--exclude_patterns', help='Patterns of files to ignore (by default inferred)', nargs='+'
+    )
+    create.add_argument(
+        '--notify_cmd',
+        default="yagmail",
+        help='Binary command that will notify. Setting this to -1 will add no notifier, default: %(default)s',
+    )
+    create.add_argument(
+        '--notify_status_cmd',
+        default="systemctl status -l -n 1000 %i",
+        help='Command that echoes output to the notifier on failure, default: %(default)s',
+    )
+    create.add_argument(
+        '--notify_cmd_args',
+        default='-s "%i failed on %H" -oauth2 {home}/oauth2.json',
+        help='Arguments passed to notify command. \n\nDefault: %(default)s. (default assumes OAuth2 gmail backend. See yagmail for details.)',
+    )
+    create.add_argument(
+        '--timer',
+        default='None',
+        help='Used to set timer. Checked to be valid. E.g. *-*-* 03:00:00 for daily at 3 am.',
     )
     view = subparsers.add_parser('view')
     view.add_argument(
@@ -38,7 +64,9 @@ def get_argparser(args=None):
     view.add_argument('fname', help='File/cmd/unit to observe')
     show_unit = subparsers.add_parser('show_unit')
     show_unit.add_argument(
-        '--systempath', default="/etc/systemd/system", help='Folder where to look for service files'
+        '--systempath',
+        default="/etc/systemd/system",
+        help='Folder where to look for service files, default: %(default)s',
     )
     show_unit.add_argument('fname', help='File/cmd/unit to show service')
     watch = subparsers.add_parser('watch')
@@ -50,11 +78,15 @@ def get_argparser(args=None):
     )
     ls = subparsers.add_parser('ls')
     ls.add_argument(
-        '--systempath', default="/etc/systemd/system", help='Folder where to look for service files'
+        '--systempath',
+        default="/etc/systemd/system",
+        help='Folder where to look for service files, default: %(default)s',
     )
     delete = subparsers.add_parser('delete')
     delete.add_argument(
-        '--systempath', default="/etc/systemd/system", help='Folder where to look for service files'
+        '--systempath',
+        default="/etc/systemd/system",
+        help='Folder where to look for service files, default: %(default)s',
     )
     delete.add_argument('fname', nargs="?", help='File/cmd/unit to observe')
     return parser, parser.parse_args(args)
@@ -97,6 +129,7 @@ def main():
         print("Creating systemd unit...")
         install(args)
         print("Done")
+        run(args.fname.replace(".", "_"), args.systempath)
     elif args.command == "view":
         service_name = args.fname.replace(".", "_")
         if not os.path.exists(args.systempath + "/" + service_name + ".service"):
