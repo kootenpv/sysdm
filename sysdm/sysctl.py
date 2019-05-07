@@ -263,15 +263,15 @@ def install(args):
     with open(os.path.join(args.systempath, service_name) + "_monitor.service", "w") as f:
         f.write(monitor)
     create_mail_on_failure_service(args)
-    _ = get_output("systemctl daemon-reload")
-    _ = get_output("systemctl enable {}".format(service_name))
-    _ = get_output("systemctl start {}".format(service_name))
+    _ = get_output("systemctl --user daemon-reload")
+    _ = get_output("systemctl --user enable {}".format(service_name))
+    _ = get_output("systemctl --user start {}".format(service_name))
     create_timer = create_timer_service(service_name, args)
     if create_timer:
-        _ = get_output("systemctl enable {}.timer".format(service_name))
-        _ = get_output("systemctl start {}.timer".format(service_name))
-    _ = get_output("systemctl enable {}_monitor".format(service_name))
-    _ = get_output("systemctl start {}_monitor".format(service_name))
+        _ = get_output("systemctl --user enable {}.timer".format(service_name))
+        _ = get_output("systemctl --user start {}.timer".format(service_name))
+    _ = get_output("systemctl --user enable {}_monitor".format(service_name))
+    _ = get_output("systemctl --user start {}_monitor".format(service_name))
     return service_name
 
 
@@ -313,16 +313,16 @@ def delete(fname, systempath):
     path = systempath + "/" + service_name
     for s in [service_name, service_name + "_monitor"]:
         if is_unit_enabled(s):
-            _ = get_output("systemctl disable {}".format(s))
+            _ = get_output("systemctl --user disable {}".format(s))
             print("Disabled unit {}".format(s))
         else:
             print("Unit {} was not enabled so no need to disable it".format(s))
         if is_unit_running(s):
-            _ = get_output("systemctl stop {}".format(s))
+            _ = get_output("systemctl --user stop {}".format(s))
             print("Stopped unit {}".format(s))
         else:
             print("Unit {} was not started so no need to stop it".format(s))
-    _ = get_output("systemctl daemon-reload")
+    _ = get_output("systemctl --user daemon-reload")
     o = run_quiet("rm {}".format(path + ".service"))
     o = run_quiet("rm {}".format(path + "_monitor.service"))
     print("Deleted {}".format(path + ".service"))

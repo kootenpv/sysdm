@@ -8,7 +8,7 @@ class Base:
     @staticmethod
     def get_status_string(n=1000):
         """ %i refers to unit name """
-        return "systemctl status -l -n {} %i".format(n)
+        return "systemctl --user status -l -n {} %i".format(n)
 
     def get_notifier_cmd(self, **kwargs):
         """ Use:

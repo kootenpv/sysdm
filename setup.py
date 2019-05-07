@@ -2,8 +2,8 @@ from setuptools import find_packages
 from setuptools import setup
 
 MAJOR_VERSION = "0"
-MINOR_VERSION = "5"
-MICRO_VERSION = "16"
+MINOR_VERSION = "6"
+MICRO_VERSION = "17"
 VERSION = "{}.{}.{}".format(MAJOR_VERSION, MINOR_VERSION, MICRO_VERSION)
 
 with open("README.md") as f:

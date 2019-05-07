@@ -16,11 +16,11 @@ def run_quiet(cmd):
 
 
 def is_unit_running(unit):
-    return get_output('systemctl is-active {unit}'.format(unit=unit)) == "active"
+    return get_output('systemctl --user is-active {unit}'.format(unit=unit)) == "active"
 
 
 def is_unit_enabled(unit):
-    return get_output('systemctl is-enabled {unit}'.format(unit=unit)) == "enabled"
+    return get_output('systemctl --user is-enabled {unit}'.format(unit=unit)) == "enabled"
 
 
 def read_command_from_unit(systempath, service_name):

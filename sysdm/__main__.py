@@ -17,7 +17,7 @@ def get_argparser(args=None):
     create = subparsers.add_parser('create')
     create.add_argument(
         '--systempath',
-        default="/etc/systemd/system",
+        default="~/.config/systemd/user/sysdm",
         help='Folder where to save the service file, default: %(default)s',
     )
     create.add_argument(
@@ -44,7 +44,7 @@ def get_argparser(args=None):
     )
     create.add_argument(
         '--notify_status_cmd',
-        default="systemctl status -l -n 1000 %i",
+        default="systemctl --user status -l -n 1000 %i",
         help='Command that echoes output to the notifier on failure, default: %(default)s',
     )
     create.add_argument(
@@ -59,13 +59,15 @@ def get_argparser(args=None):
     )
     view = subparsers.add_parser('view')
     view.add_argument(
-        '--systempath', default="/etc/systemd/system", help='Folder where to look for service files'
+        '--systempath',
+        default="~/.config/systemd/user/sysdm",
+        help='Folder where to look for service files',
     )
     view.add_argument('fname', help='File/cmd/unit to observe')
     show_unit = subparsers.add_parser('show_unit')
     show_unit.add_argument(
         '--systempath',
-        default="/etc/systemd/system",
+        default="~/.config/systemd/user/sysdm",
         help='Folder where to look for service files, default: %(default)s',
     )
     show_unit.add_argument('fname', help='File/cmd/unit to show service')
@@ -79,13 +81,13 @@ def get_argparser(args=None):
     ls = subparsers.add_parser('ls')
     ls.add_argument(
         '--systempath',
-        default="/etc/systemd/system",
+        default="~/.config/systemd/user/sysdm",
         help='Folder where to look for service files, default: %(default)s',
     )
     delete = subparsers.add_parser('delete')
     delete.add_argument(
         '--systempath',
-        default="/etc/systemd/system",
+        default="~/.config/systemd/user/sysdm",
         help='Folder where to look for service files, default: %(default)s',
     )
     delete.add_argument('fname', nargs="?", help='File/cmd/unit to observe')
@@ -125,6 +127,11 @@ def choose_unit(units):
 
 def main():
     parser, args = get_argparser()
+    args.systempath = os.path.expanduser(args.systempath)
+    try:
+        os.makedirs(args.systempath)
+    except FileExistsError:
+        pass
     if args.command == "create":
         print("Creating systemd unit...")
         install(args)

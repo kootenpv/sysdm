@@ -50,7 +50,7 @@ def run(unit, systempath):
                     if timed:
                         timer_text = ""
                         while not timer_text:
-                            status = get_output("systemctl list-timers " + unit + ".timer")
+                            status = get_output("systemctl --user list-timers " + unit + ".timer")
                             timer_text = status.split("\n")[1][4 : status.index("LEFT") - 2]
                             status = "Next: " + t.green(timer_text)
                             timer = datetime.strptime(timer_text, "%Y-%m-%d %H:%M:%S %Z")
@@ -102,7 +102,7 @@ def run(unit, systempath):
                     n = t.height - Y_BANNER_OFFSET - 1
                     w = t.width
                     g = "--grep " + grep if grep else ""
-                    cmd = "journalctl -u {u} -u {u}_monitor -u {u}.timer -n {n} --no-pager {g}".format(
+                    cmd = "journalctl --user -u {u} -u {u}_monitor -u {u}.timer -n {n} --no-pager {g}".format(
                         u=unit, n=n + log_offset + 100, g=g
                     )
                     output = get_output(cmd)
@@ -147,28 +147,28 @@ def run(unit, systempath):
                     print(t.clear())
                     if is_running:
                         print("Stopping unit {unit}".format(unit=unit))
-                        get_output("sudo systemctl stop {unit}".format(unit=unit))
-                        get_output("sudo systemctl stop {unit}.timer".format(unit=unit))
+                        get_output("systemctl --user stop {unit}".format(unit=unit))
+                        get_output("systemctl --user stop {unit}.timer".format(unit=unit))
                     else:
                         print("Starting unit {unit}".format(unit=unit))
-                        get_output("sudo systemctl start {unit}".format(unit=unit))
-                        get_output("sudo systemctl start {unit}.timer".format(unit=unit))
+                        get_output("systemctl --user start {unit}".format(unit=unit))
+                        get_output("systemctl --user start {unit}.timer".format(unit=unit))
                     resized = [True]
                 elif inp == "R":
                     print(t.clear())
                     print("Restarting unit {unit}".format(unit=unit))
-                    get_output("systemctl restart {unit}".format(unit=unit))
+                    get_output("systemctl --user restart {unit}".format(unit=unit))
                     resized = [True]
                 elif inp == "T":
                     print(t.clear())
                     if is_enabled:
                         print("Disabling unit {unit} on startup".format(unit=unit))
-                        get_output("sudo systemctl disable {unit}".format(unit=unit))
-                        get_output("sudo systemctl disable {unit}.timer".format(unit=unit))
+                        get_output("systemctl --user disable {unit}".format(unit=unit))
+                        get_output("systemctl --user disable {unit}.timer".format(unit=unit))
                     else:
                         print("Enabling unit {unit} on startup".format(unit=unit))
-                        get_output("sudo systemctl enable {unit}".format(unit=unit))
-                        get_output("sudo systemctl enable {unit}.timer".format(unit=unit))
+                        get_output("systemctl --user enable {unit}".format(unit=unit))
+                        get_output("systemctl --user enable {unit}.timer".format(unit=unit))
                     resized = [True]
                 elif inp == " ":
                     print(t.clear())
