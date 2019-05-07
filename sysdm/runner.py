@@ -4,21 +4,24 @@ import signal
 from blessed import Terminal
 from sysdm.utils import get_output, is_unit_running, is_unit_enabled, read_ps_aux_by_unit
 
+from datetime import datetime, timedelta
+from collections import deque
+
 
 def run(unit, systempath):
     t = Terminal()
     print(t.enter_fullscreen())
 
     mapping = [
-        "[R] Restart service                    [T] Enable on startup",
-        "[S] Stop service                       [X] Toggle autorestart",
-        "[q] Quit (keep running in background)  [X] Watch a new pattern",
-        "[G] Grep (filter) a pattern            [X] Unwatch an existing pattern",
+        "[R] Restart service                                                   ",
+        "[S] Stop service                                                      ",
+        "[T] Enable on startup                                                 ",
+        "[G] Grep (filter) a pattern      [q] Quit view                        ",
     ]
 
     OFFSET = 12
 
-    resized = []
+    resized = [True]
     signal.signal(signal.SIGWINCH, lambda *args: resized.append(True))
 
     logo = "[sysdm]"
@@ -26,81 +29,97 @@ def run(unit, systempath):
 
     Y_BANNER_OFFSET = len(mapping) + 1 + 2  # mapping, banner, in between lines
 
-    additional = ""
     grep = ""
 
-    it = 0
     x_banner_offset = 0
-    try:
-        while True:
-            y, x = t.get_location()
-            # additional = "x={} y={}".format(x, y)
-            if resized or it == 0 or y > t.height - 3:
-                print(t.clear())
-                resized = []
-                it = 0
-                is_running = is_unit_running(unit)
-                is_enabled = is_unit_enabled(unit)
-                with t.location(OFFSET, 0):
-                    status = t.green("ACTIVE") if is_running else t.red("INACTIVE")
-                    enabled = t.green("ENABLED") if is_enabled else t.red("DISABLED")
-                    line = "Unit: {} Now: {} On Startup: {}".format(t.bold(unit), status, enabled)
-                    x_banner_offset = len(line)
-                    print(line)
+    left_offset = 0
+    log_offset = 0
+    paused_output = False
 
-                with t.location(t.width - len(logo + additional), 0):
-                    print(t.bold(logo + additional))
+    with t.hidden_cursor():
+        try:
+            while True:
+                print(t.move(0, 0))
+                y, x = t.get_location()
+                if resized:
+                    print(t.clear())
+                    resized = []
+                    is_running = is_unit_running(unit)
+                    is_enabled = is_unit_enabled(unit)
+                    with t.location(OFFSET, 0):
+                        status = t.green("ACTIVE") if is_running else t.red("INACTIVE")
+                        enabled = t.green("ENABLED") if is_enabled else t.red("DISABLED")
+                        line = "Unit: {} Now: {} On Startup: {}".format(
+                            t.bold(unit), status, enabled
+                        )
+                        x_banner_offset = len(line)
+                        print(line)
 
-                with t.location(0, 1):
-                    print(t.center("-" * (t.width - 16)))
+                    with t.location(t.width - len(logo), 0):
+                        print(t.bold(logo))
 
-                for num, line in enumerate(mapping):
-                    with t.location(0, num + 2):
-                        if not is_running:
-                            line = line.replace("Stop service ", "Start service")
-                        if is_enabled:
-                            line = line.replace("Enable on startup", "Disable on startup")
-                        line = line.replace("[", "[" + t.green).replace("]", t.normal + "]")
-                        print(" " * OFFSET + (line + " " * t.width)[: t.width + 3])
+                    with t.location(0, 1):
+                        print(t.center("-" * (t.width - 16)))
 
-                with t.location(0, 6):
-                    print(t.center("-" * (t.width - 16)))
+                    for num, line in enumerate(mapping):
+                        with t.location(0, num + 2):
+                            if not is_running:
+                                line = line.replace("Stop service ", "Start service")
+                            if is_enabled:
+                                line = line.replace("Enable on startup", "Disable on startup")
+                            line = line.replace("[", "[" + t.green).replace("]", t.normal + "]")
+                            print(" " * OFFSET + (line + " " * t.width)[: t.width + 3])
 
-            with t.hidden_cursor():
+                    with t.location(0, 6):
+                        print(t.center("-" * (t.width - 16)))
 
-                if is_running and t.width - x_banner_offset > 50:
-                    with t.location(x_banner_offset, 0):
+                if t.width - x_banner_offset > 50:
+                    res = "| {} |".format(time.asctime())
+                    if is_running:
                         ps_info = read_ps_aux_by_unit(systempath, unit)
                         if ps_info is not None:
                             res = "| {} | PID={} | CPU {:>4}% | MEM {:>4}% | NTHREADS={}".format(
                                 time.asctime(), *ps_info
                             )
-                            print(res)
+                    with t.location(x_banner_offset, 0):
+                        print(res)
 
-            with t.hidden_cursor():
                 with t.location(0, Y_BANNER_OFFSET):
-                    n = t.height - Y_BANNER_OFFSET
+                    n = t.height - Y_BANNER_OFFSET - 1
                     w = t.width
                     g = "--grep " + grep if grep else ""
                     cmd = "journalctl -u {} -u {}_monitor -n {n} --no-pager --no-hostname {g}".format(
-                        unit, unit, n=n + 50, g=g
+                        unit, unit, n=n + log_offset + 100, g=g
                     )
                     output = get_output(cmd)
                     outp = []
                     for line in output.split("\n"):
+                        # replace e.g. python[pidnum123]: real output
+                        line = re.sub("(?<=:\d\d ).+?\[\d+\]: ", "| ", line)
                         if grep:
                             rmatch = re.search(grep, line)
                             if rmatch is not None:
                                 s = rmatch.start()
                                 e = rmatch.end()
                                 line = line[:s] + t.red(line[s:e]) + line[e:]
-                        l = (line + " " * 100)[: w - 5]
+                        l = (line + " " * 200)[left_offset : w + left_offset - 5]
                         if "Stopped" in l:
-                            l = t.red(l)
+                            l = t.bold(l)
                         if "Started" in l:
                             l = t.green(l)
+                        if "WARNING: " in l:
+                            l = t.yellow(l)
+                        if "ERROR: " in l:
+                            l = t.red(l)
+                        if "Failed to start " in l:
+                            l = t.red(l)
+                        if "Triggering OnFailure= " in l:
+                            l = t.yellow(l)
                         outp.append(l)
-                    print("\n".join(outp[-n + 1 :]))
+                    if log_offset:
+                        print("\n".join(outp[-n - log_offset + 1 : -log_offset]))
+                    else:
+                        print("\n".join(outp[-n - log_offset + 1 :]))
 
                 with t.cbreak():
                     inp = t.inkey(0.3)
@@ -145,9 +164,20 @@ def run(unit, systempath):
                             "Grep pattern to search for (leave blank for cancel): "
                         ).strip()
                     resized = [True]
-                else:
-                    it += 1
+                elif inp.name == "KEY_RIGHT":
                     print(t.erase())
-    except KeyboardInterrupt:
-        pass
-    print(t.clear())
+                    left_offset = min(left_offset + 5, t.width)
+                elif inp.name == "KEY_LEFT":
+                    print(t.erase())
+                    left_offset = max(0, left_offset - 5)
+                elif inp.name == "KEY_UP":
+                    print(t.erase())
+                    log_offset = min(log_offset + 5, t.height)
+                elif inp.name == "KEY_DOWN":
+                    print(t.erase())
+                    log_offset = max(0, log_offset - 5)
+                else:
+                    print(t.erase())
+        except KeyboardInterrupt:
+            pass
+        print(t.clear())

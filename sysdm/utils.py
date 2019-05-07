@@ -1,3 +1,4 @@
+import os
 import subprocess
 
 
@@ -5,6 +6,13 @@ def get_output(cmd):
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, shell=True)
     (out, _) = proc.communicate()
     return out.decode().strip()
+
+
+def run_quiet(cmd):
+    with open(os.devnull, 'w') as devnull:
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=devnull, shell=True)
+        (out, _) = proc.communicate()
+        return out.decode().strip()
 
 
 def is_unit_running(unit):
@@ -16,7 +24,7 @@ def is_unit_enabled(unit):
 
 
 def read_command_from_unit(systempath, service_name):
-    with open(systempath + "/" + service_name + ".service") as f:
+    with open(os.path.join(systempath, service_name) + ".service") as f:
         for line in f.read().split("\n"):
             if line.startswith("ExecStart="):
                 return line[10:].strip()
@@ -35,3 +43,7 @@ def read_ps_aux_by_unit(systempath, unit):
         rest = " ".join(rest)
         if cmd.endswith(rest) or rest.endswith(cmd):
             return pid, cpu, mem, thcount
+
+
+def is_git_ignored(abspath):
+    return bool(get_output("git check-ignore {}".format(abspath)).strip())

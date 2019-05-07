@@ -2,8 +2,8 @@ from setuptools import find_packages
 from setuptools import setup
 
 MAJOR_VERSION = "0"
-MINOR_VERSION = "1"
-MICRO_VERSION = "12"
+MINOR_VERSION = "3"
+MICRO_VERSION = "13"
 VERSION = "{}.{}.{}".format(MAJOR_VERSION, MINOR_VERSION, MICRO_VERSION)
 
 with open("README.md") as f:
@@ -20,7 +20,7 @@ setup(
     long_description_content_type="text/markdown",
     entry_points={'console_scripts': ['sysdm = sysdm.__main__:main']},
     license='MIT',
-    install_requires=["inotify", "blessed", "pick"],
+    install_requires=["inotify", "blessed", "pick", "yagmail"],
     packages=find_packages(),
     classifiers=[
         'Environment :: Console',
