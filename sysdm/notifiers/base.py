@@ -20,7 +20,7 @@ class Base:
 
     def get_exec_start(self, n=1000, **kwargs):
         cmd = self.get_status_string(n) + " | " + self.get_notifier_cmd(**kwargs)
-        return "/usr/bin/sh -c {}".format(repr(cmd))
+        return "/bin/bash -c {}".format(repr(cmd))
 
     @property
     def on_failure_name(self):

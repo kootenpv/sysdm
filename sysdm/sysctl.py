@@ -213,7 +213,7 @@ def create_mail_on_failure_service(args):
     home = get_output("echo ~" + user)
     host = get_output("echo $HOSTNAME")
     notify_cmd_args = args.notify_cmd_args.format(home=home, host=host)
-    exec_start = """/usr/bin/sh -c '{notify_status_cmd} | {notifier} {notify_cmd_args}' """.format(
+    exec_start = """/bin/bash -c '{notify_status_cmd} | {notifier} {notify_cmd_args}' """.format(
         notify_status_cmd=args.notify_status_cmd, notifier=notifier, notify_cmd_args=notify_cmd_args
     )
     print("Testing notifier ({})".format(args.notify_cmd))
@@ -223,7 +223,7 @@ def create_mail_on_failure_service(args):
         .replace("%H", host)
         .format(home=home, host=host)
     )
-    test_cmd = """/usr/bin/sh -c '{notify_status_cmd} | {notifier} {notify_cmd_args}' """.format(
+    test_cmd = """/bin/bash -c '{notify_status_cmd} | {notifier} {notify_cmd_args}' """.format(
         notify_status_cmd=args.notify_status_cmd.replace("%i", ""),
         notifier=notifier,
         notify_cmd_args=test_args,

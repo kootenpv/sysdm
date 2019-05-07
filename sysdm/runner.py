@@ -92,7 +92,7 @@ def run(unit, systempath):
                     if is_running:
                         ps_info = read_ps_aux_by_unit(systempath, unit)
                         if ps_info is not None:
-                            res = "| {} | PID={} | CPU {:>4}% | MEM {:>4}% | NTHREADS={}".format(
+                            res = "| {} | PID={} | CPU {:>4}% | MEM {:>4}%".format(
                                 time.asctime(), *ps_info
                             )
                     with t.location(x_banner_offset, 0):

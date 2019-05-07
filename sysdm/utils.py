@@ -32,17 +32,17 @@ def read_command_from_unit(systempath, service_name):
 
 def read_ps_aux_by_unit(systempath, unit):
     cmd = read_command_from_unit(systempath, unit)
-    z = get_output("ps ax -o pid,%cpu,%mem,ppid,thcount,args -ww")
+    z = get_output("ps ax -o pid,%cpu,%mem,ppid,args -ww")
 
     for num, line in enumerate(z.split("\n")):
         if num == 0:
             continue
-        pid, cpu, mem, ppid, thcount, *rest = line.split()
+        pid, cpu, mem, ppid, *rest = line.split()
         if ppid != "1":
             continue
         rest = " ".join(rest)
         if cmd.endswith(rest) or rest.endswith(cmd):
-            return pid, cpu, mem, thcount
+            return pid, cpu, mem
 
 
 def is_git_ignored(abspath):
