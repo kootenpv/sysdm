@@ -28,7 +28,7 @@ class Base:
 
     @property
     def user(self):
-        return get_output("echo $SUDO_USER")
+        return get_output("echo $USER")
 
     @property
     def home(self):

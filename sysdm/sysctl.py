@@ -49,10 +49,8 @@ def get_exclusions_from_filename(fname):
 
 def create_service_template(args):
     here = os.path.abspath(".")
-    user = get_output("echo $SUDO_USER")
-    user_group = get_output("""getent group | grep $SUDO_GID: | awk -F ":" '{ print $1}'""").split(
-        "\n"
-    )[0]
+    user = get_output("echo $USER")
+    user_group = get_output("id -gn pascal")
     extra_args = " ".join(args.extra_args)
     binary, cmd = get_cmd_from_filename(args.fname)
     fname = args.fname + " "
@@ -156,7 +154,7 @@ def create_timer_service(service_name, args):
 
 
 def create_service_monitor_template(service_name, args):
-    user = get_output("echo $SUDO_USER")
+    user = get_output("echo $USER")
     user_group = get_output("""getent group | grep $SUDO_GID: | awk -F ":" '{ print $1}'""").split(
         "\n"
     )[0]
@@ -206,7 +204,7 @@ def create_mail_on_failure_service(args):
     if args.notify_cmd == "-1":
         return
     notifier = get_output("which " + args.notify_cmd)
-    user = get_output("echo $SUDO_USER")
+    user = get_output("echo $USER")
     user_group = get_output("""getent group | grep $SUDO_GID: | awk -F ":" '{ print $1}'""").split(
         "\n"
     )[0]

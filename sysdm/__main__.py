@@ -152,7 +152,7 @@ def main():
     elif args.command == "watch":
         watch(args)
     elif args.command == "delete":
-        sudo = get_output("echo $SUDO_USER")
+        sudo = get_output("echo $USER")
         if not sudo:
             print("Need sudo to delete systemd unit files.")
             sys.exit(1)
