@@ -155,9 +155,7 @@ def create_timer_service(service_name, args):
 
 def create_service_monitor_template(service_name, args):
     user = get_output("echo $USER")
-    user_group = get_output("""getent group | grep $SUDO_GID: | awk -F ":" '{ print $1}'""").split(
-        "\n"
-    )[0]
+    user_group = get_output("id -gn pascal")
     cmd = get_output("which sysdm")
     here = os.path.abspath(".")
     extensions = args.extensions or get_extensions_from_filename(args.fname)
@@ -205,9 +203,7 @@ def create_mail_on_failure_service(args):
         return
     notifier = get_output("which " + args.notify_cmd)
     user = get_output("echo $USER")
-    user_group = get_output("""getent group | grep $SUDO_GID: | awk -F ":" '{ print $1}'""").split(
-        "\n"
-    )[0]
+    user_group = get_output("id -gn pascal")
     home = get_output("echo ~" + user)
     host = get_output("echo $HOSTNAME")
     notify_cmd_args = args.notify_cmd_args.format(home=home, host=host)
