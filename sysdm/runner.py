@@ -102,8 +102,8 @@ def run(unit, systempath):
                     n = t.height - Y_BANNER_OFFSET - 1
                     w = t.width
                     g = "--grep " + grep if grep else ""
-                    cmd = "journalctl -u {} -u {}_monitor -n {n} --no-pager --no-hostname {g}".format(
-                        unit, unit, n=n + log_offset + 100, g=g
+                    cmd = "journalctl -u {u} -u {u}_monitor -u {u}.timer -n {n} --no-pager {g}".format(
+                        u=unit, n=n + log_offset + 100, g=g
                     )
                     output = get_output(cmd)
                     outp = []
