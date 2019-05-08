@@ -52,8 +52,8 @@ def run(unit, systempath):
                         while not timer_text:
                             status = get_output("systemctl --user list-timers " + unit + ".timer")
                             timer_text = status.split("\n")[1][4 : status.index("LEFT") - 2]
-                            status = "Next: " + t.green(timer_text)
-                            timer = datetime.strptime(timer_text, "%Y-%m-%d %H:%M:%S %Z")
+                        status = "Next: " + t.green(timer_text)
+                        timer = datetime.strptime(timer_text, "%Y-%m-%d %H:%M:%S %Z")
                     else:
                         status = (
                             "Now: " + t.green("ACTIVE")
@@ -151,7 +151,7 @@ def run(unit, systempath):
                         get_output("systemctl --user stop {unit}.timer".format(unit=unit))
                     else:
                         print("Starting unit {unit}".format(unit=unit))
-                        get_output("systemctl --user start {unit}".format(unit=unit))
+                        get_output("systemctl --user start --no-block {unit}".format(unit=unit))
                         get_output("systemctl --user start {unit}.timer".format(unit=unit))
                     resized = [True]
                 elif inp == "R":

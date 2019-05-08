@@ -97,19 +97,17 @@ def get_argparser(args=None):
 def choose_unit(units):
     options = []
     for unit in units:
-        is_running = is_unit_running(unit)
-        is_enabled = is_unit_enabled(unit)
-        running = "✓" if is_running else "✗"
-        enabled = "✓" if is_enabled else "✗"
+        running = "✓" if is_unit_running(unit) or is_unit_running(unit + ".timer") else "✗"
+        enabled = "✓" if is_unit_enabled(unit) else "✗"
         options.append((unit, running, enabled))
 
-    pad = "{}|    {}    |    {}   "
+    pad = "{}|    {}    |    {}    "
     offset = max([len(x[0]) for x in options]) + 3
     formatted_options = [pad.format(x.ljust(offset), r, e) for x, r, e in options]
     quit = "-- Quit --"
     formatted_options.append(" ")
     formatted_options.append(quit)
-    title = "These are known units:\n\n{}| Running | Starts on boot".format(" " * (offset + 2))
+    title = "These are known units:\n\n{}| Active  | Starts on boot".format(" " * (offset + 2))
     default_index = 0
     while True:
         p = Picker(formatted_options, title, default_index=default_index)
