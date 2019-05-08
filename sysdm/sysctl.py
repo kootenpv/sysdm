@@ -49,8 +49,6 @@ def get_exclusions_from_filename(fname):
 
 def create_service_template(args):
     here = os.path.abspath(".")
-    user = get_output("echo $USER")
-    user_group = get_output("id -gn pascal")
     extra_args = " ".join(args.extra_args)
     binary, cmd = get_cmd_from_filename(args.fname)
     fname = args.fname + " "
@@ -79,8 +77,6 @@ def create_service_template(args):
     {on_failure}
 
     [Service]
-    User={user}
-    Group={user_group}
     Type={service_type}
     {restart}
     ExecStart={cmd} {fname} {extra_args}
@@ -93,8 +89,6 @@ def create_service_template(args):
         )
         .format(
             service_name=service_name,
-            user=user,
-            user_group=user_group,
             cmd=cmd,
             fname=fname,
             extra_args=extra_args,
@@ -119,16 +113,12 @@ def timer_granularity(timer_str):
 
 def create_timer_service(service_name, args):
     timer = run_quiet("systemd-analyze calendar '{}'".format(args.timer))
-    if bool(timer):
-        next_run = timer.split("From now: ")[1].strip()
-        service_type = "oneshot"
-        timer = "[Timer]\nOnCalendar={}".format(args.timer)
-        print("Service type 'oneshot' since using a timer. Next run: {}".format(next_run))
-    else:
-        service_type = "simple"
-        timer = ""
+    if not bool(timer):
         print("Service type 'simple' (long running) since NOT using a timer.")
         return False
+    next_run = timer.split("From now: ")[1].strip()
+    accuracy_sec = timer_granularity(args.timer)
+    print("Service type 'oneshot' since using a timer. Next run: {}".format(next_run))
     service = (
         """
     [Unit]
@@ -145,7 +135,7 @@ def create_timer_service(service_name, args):
     """.replace(
             "\n    ", "\n"
         )
-        .format(timer=timer, service_name=service_name, accuracy_sec=timer_granularity(args.timer))
+        .format(timer=args.timer, service_name=service_name, accuracy_sec=accuracy_sec)
         .strip()
     )
     with open(os.path.join(args.systempath, "{}.timer".format(service_name)), "w") as f:
@@ -154,8 +144,6 @@ def create_timer_service(service_name, args):
 
 
 def create_service_monitor_template(service_name, args):
-    user = get_output("echo $USER")
-    user_group = get_output("id -gn pascal")
     cmd = get_output("which sysdm")
     here = os.path.abspath(".")
     extensions = args.extensions or get_extensions_from_filename(args.fname)
@@ -170,8 +158,6 @@ def create_service_monitor_template(service_name, args):
     After=network-online.target
 
     [Service]
-    User={user}
-    Group={user_group}
     Type=simple
     Restart=always
     RestartSec=0
@@ -186,8 +172,6 @@ def create_service_monitor_template(service_name, args):
         )
         .format(
             service_name=service_name,
-            user=user,
-            user_group=user_group,
             cmd=cmd,
             extensions=extensions,
             exclude_patterns=exclude_patterns,
@@ -203,7 +187,6 @@ def create_mail_on_failure_service(args):
         return
     notifier = get_output("which " + args.notify_cmd)
     user = get_output("echo $USER")
-    user_group = get_output("id -gn pascal")
     home = get_output("echo ~" + user)
     host = get_output("echo $HOSTNAME")
     notify_cmd_args = args.notify_cmd_args.format(home=home, host=host)
@@ -230,14 +213,12 @@ def create_mail_on_failure_service(args):
     Description={notify_cmd} OnFailure for %i
 
     [Service]
-    User={user}
-    Group={user_group}
     Type=oneshot
     ExecStart={exec_start}
     """.replace(
         "\n    ", "\n"
     ).format(
-        exec_start=exec_start, notify_cmd=args.notify_cmd, user=user, user_group=user_group
+        exec_start=exec_start, notify_cmd=args.notify_cmd
     )
     with open(
         os.path.join(args.systempath, "{}-onfailure@.service".format(args.notify_cmd)), "w"
@@ -305,7 +286,7 @@ def ls(args):
 def delete(fname, systempath):
     service_name = fname.replace(".", "_")
     path = systempath + "/" + service_name
-    for s in [service_name, service_name + "_monitor"]:
+    for s in [service_name, service_name + "_monitor", service_name + ".timer"]:
         if is_unit_enabled(s):
             _ = get_output("systemctl --user disable {}".format(s))
             print("Disabled unit {}".format(s))
@@ -319,8 +300,10 @@ def delete(fname, systempath):
     _ = get_output("systemctl --user daemon-reload")
     o = run_quiet("rm {}".format(path + ".service"))
     o = run_quiet("rm {}".format(path + "_monitor.service"))
+    o = run_quiet("rm {}".format(path + ".timer"))
     print("Deleted {}".format(path + ".service"))
     print("Deleted {}".format(path + "_monitor.service"))
+    print("Deleted {}".format(path + ".timer"))
     print("Delete Succeeded!")
 
 
