@@ -23,9 +23,9 @@ It gives you the best from screen, systemctl and journalctl.
 
 ### Usage
 
-    sudo sysdm create myfile.py # creates and enables a new service file
-    sysdm view myfile.py        # tails the service logs and allows interaction
+    sysdm create myfile.py      # creates, starts and enables a new service file
     sysdm ls                    # see the known services created by sysdm
+    sysdm delete                # see the known services and select to delete
 
 ### Features
 

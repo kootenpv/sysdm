@@ -47,3 +47,7 @@ def read_ps_aux_by_unit(systempath, unit):
 
 def is_git_ignored(abspath):
     return bool(get_output("git check-ignore {}".format(abspath)).strip())
+
+
+def to_sn(fname_or_cmd):
+    return fname_or_cmd.split()[0].split("/")[-1].replace(".", "_")

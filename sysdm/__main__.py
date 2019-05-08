@@ -3,7 +3,7 @@ import os
 from pick import Picker
 from sysdm.sysctl import install, show, ls, delete
 from sysdm.file_watcher import watch
-from sysdm.utils import get_output, is_unit_running, is_unit_enabled
+from sysdm.utils import get_output, is_unit_running, is_unit_enabled, to_sn
 from sysdm.runner import run
 
 
@@ -23,8 +23,7 @@ def get_argparser(args=None):
     create.add_argument(
         '--norestart', action='store_true', help='Whether to prevent auto restart on error'
     )
-    create.add_argument('fname', help='File/cmd to run')
-    create.add_argument('extra_args', help='Args to pass to command to be run', nargs="*")
+    create.add_argument('fname_or_cmd', help='File/cmd to run')
     create.add_argument(
         '--delay',
         '-d',
@@ -63,14 +62,14 @@ def get_argparser(args=None):
         default="~/.config/systemd/user",
         help='Folder where to look for service files',
     )
-    view.add_argument('fname', help='File/cmd/unit to observe')
+    view.add_argument('unit', help='File/cmd/unit to observe')
     show_unit = subparsers.add_parser('show_unit')
     show_unit.add_argument(
         '--systempath',
         default="~/.config/systemd/user",
         help='Folder where to look for service files, default: %(default)s',
     )
-    show_unit.add_argument('fname', help='File/cmd/unit to show service')
+    show_unit.add_argument('unit', help='File/cmd/unit to show service')
     watch = subparsers.add_parser('watch')
     watch.add_argument(
         'extensions', help='Patterns of files to watch (by default inferred)', nargs='?'
@@ -90,7 +89,7 @@ def get_argparser(args=None):
         default="~/.config/systemd/user",
         help='Folder where to look for service files, default: %(default)s',
     )
-    delete.add_argument('fname', nargs="?", help='File/cmd/unit to observe')
+    delete.add_argument('unit', nargs="?", help='File/cmd/unit to observe')
     return parser, parser.parse_args(args)
 
 
@@ -123,7 +122,7 @@ def choose_unit(units):
     return units[index]
 
 
-def main():
+def _main():
     parser, args = get_argparser()
     try:
         args.systempath = os.path.expanduser(args.systempath)
@@ -135,15 +134,15 @@ def main():
         pass
     if args.command == "create":
         print("Creating systemd unit...")
-        install(args)
+        service_name = install(args)
         print("Done")
-        run(args.fname.replace(".", "_"), args.systempath)
+        run(service_name, args.systempath)
     elif args.command == "view":
-        service_name = args.fname.replace(".", "_")
+        service_name = to_sn(args.unit)
         if not os.path.exists(args.systempath + "/" + service_name + ".service"):
             print(
-                "Service file does not exist. You can start by running:\n\n    sudo sysdm create {}\n\nto create a service or run:\n\n    sysdm ls\n\nto see the services already created by sysdm.".format(
-                    args.fname
+                "Service file does not exist. You can start by running:\n\n    sysdm create {}\n\nto create a service or run:\n\n    sysdm ls\n\nto see the services already created by sysdm.".format(
+                    args.unit
                 )
             )
             sys.exit(1)
@@ -153,19 +152,17 @@ def main():
     elif args.command == "watch":
         watch(args)
     elif args.command == "delete":
-        sudo = get_output("echo $USER")
-        if not sudo:
-            print("Need sudo to delete systemd unit files.")
-            sys.exit(1)
-        if args.fname is None:
+        if args.unit is None:
             units = ls(args)
             unit = choose_unit(units)
+            if unit is None:
+                sys.exit()
             inp = input("Are you sure you want to delete '{}'? [y/N]: ".format(unit))
             if inp.lower().strip() != "y":
                 print("Aborting")
                 return
         else:
-            unit = args.fname
+            unit = args.unit
         delete(unit, args.systempath)
     elif args.command == "ls":
         units = ls(args)
@@ -182,3 +179,10 @@ def main():
     else:
         parser.print_help(sys.stderr)
         sys.exit(1)
+
+
+def main():
+    try:
+        _main()
+    except KeyboardInterrupt:
+        print("Aborted")

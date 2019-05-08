@@ -55,13 +55,9 @@ def run(unit, systempath):
                         status = "Next: " + t.green(timer_text)
                         timer = datetime.strptime(timer_text, "%Y-%m-%d %H:%M:%S %Z")
                     else:
-                        status = (
-                            "Now: " + t.green("ACTIVE")
-                            if is_running
-                            else "Now: " + t.red("INACTIVE")
-                        )
+                        status = "Active: " + (t.green("✓") if is_running else t.red("✗"))
                     with t.location(OFFSET, 0):
-                        enabled = t.green("ENABLED") if is_enabled else t.red("DISABLED")
+                        enabled = t.green("✓") if is_enabled else t.red("✗")
                         line = "Unit: {} {} On Startup: {}".format(t.bold(unit), status, enabled)
                         x_banner_offset = len(line)
                         print(line)

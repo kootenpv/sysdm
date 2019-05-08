@@ -1,6 +1,6 @@
 import os
 import sys
-from sysdm.utils import get_output, run_quiet, is_unit_running, is_unit_enabled
+from sysdm.utils import get_output, run_quiet, is_unit_running, is_unit_enabled, to_sn
 
 
 def get_cmd_from_filename(fname):
@@ -49,14 +49,14 @@ def get_exclusions_from_filename(fname):
 
 def create_service_template(args):
     here = os.path.abspath(".")
-    extra_args = " ".join(args.extra_args)
-    binary, cmd = get_cmd_from_filename(args.fname)
-    fname = args.fname + " "
+    fname, extra_args = args.fname_or_cmd.split()[0], " ".join(args.fname_or_cmd.split()[1:])
+    binary, cmd = get_cmd_from_filename(fname)
+    service_name = fname + "_" + here.split("/")[-1] if binary else fname
+    service_name = to_sn(service_name)
+    fname = fname + " "
     # other binary
     if binary:
         fname = ""
-    service_name = args.fname + "_" + here.split("/")[-1] if binary else args.fname
-    service_name = service_name.replace("./", "").replace(".", "_")
     if args.notify_cmd != "-1":
         on_failure = "OnFailure={}-onfailure@%i.service".format(args.notify_cmd)
     else:
@@ -149,9 +149,10 @@ def create_timer_service(service_name, args):
 def create_service_monitor_template(service_name, args):
     cmd = get_output("which sysdm")
     here = os.path.abspath(".")
-    extensions = args.extensions or get_extensions_from_filename(args.fname)
+    fname = args.fname_or_cmd.split()[0]
+    extensions = args.extensions or get_extensions_from_filename(fname)
     extensions = " ".join(extensions)
-    exclude_patterns = args.exclude_patterns or get_exclusions_from_filename(args.fname)
+    exclude_patterns = args.exclude_patterns or get_exclusions_from_filename(fname)
     exclude_patterns = " ".join(exclude_patterns)
     exclude_patterns = "--exclude_patterns " + exclude_patterns if exclude_patterns else ""
     service = (
@@ -198,7 +199,7 @@ def create_mail_on_failure_service(args):
     )
     print("Testing notifier ({})".format(args.notify_cmd))
     test_args = (
-        args.notify_cmd_args.replace("%i", "<unit notify>")
+        args.notify_cmd_args.replace("%i", args.notify_cmd)
         .replace("failed", "test succeeded")
         .replace("%H", host)
         .format(home=home, host=host)
@@ -255,7 +256,7 @@ def install(args):
 
 
 def show(args):
-    service_name = args.fname.replace(".", "_")
+    service_name = args.unit
     service_file = os.path.join(args.systempath, service_name) + ".service"
     service_monitor_file = os.path.join(args.systempath, service_name) + "_monitor.service"
     service_timer_file = os.path.join(args.systempath, service_name) + ".timer"
@@ -290,8 +291,8 @@ def ls(args):
     return units
 
 
-def delete(fname, systempath):
-    service_name = fname.replace(".", "_")
+def delete(unit, systempath):
+    service_name = unit.replace(".", "_")
     path = systempath + "/" + service_name
     for s in [service_name, service_name + "_monitor", service_name + ".timer"]:
         if is_unit_enabled(s):
