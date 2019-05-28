@@ -1,6 +1,6 @@
 import os
 import sys
-from sysdm.utils import get_output, run_quiet, is_unit_running, is_unit_enabled, to_sn
+from sysdm.utils import get_output, run_quiet, is_unit_running, is_unit_enabled, to_sn, systemctl
 
 
 def get_cmd_from_filename(fname):
@@ -239,19 +239,19 @@ def install(args):
         print("Need sudo to create systemd unit service file.")
         sys.exit(1)
     create_mail_on_failure_service(args)
-    _ = get_output("systemctl --user daemon-reload")
-    _ = get_output("systemctl --user enable {}".format(service_name))
+    _ = systemctl("daemon-reload")
+    _ = systemctl("enable {}".format(service_name))
     create_timer = create_timer_service(service_name, args)
     if create_timer:
-        _ = get_output("systemctl --user enable {}.timer".format(service_name))
-        _ = get_output("systemctl --user start {}.timer".format(service_name))
+        _ = systemctl("enable {}.timer".format(service_name))
+        _ = systemctl("start {}.timer".format(service_name))
     else:
         monitor = create_service_monitor_template(service_name, args)
         with open(os.path.join(args.systempath, service_name) + "_monitor.service", "w") as f:
             f.write(monitor)
-        _ = get_output("systemctl --user start --no-block {}".format(service_name))
-        _ = get_output("systemctl --user enable {}_monitor".format(service_name))
-        _ = get_output("systemctl --user start {}_monitor".format(service_name))
+        _ = systemctl("start --no-block {}".format(service_name))
+        _ = systemctl("enable {}_monitor".format(service_name))
+        _ = systemctl("start {}_monitor".format(service_name))
     return service_name
 
 
@@ -296,16 +296,16 @@ def delete(unit, systempath):
     path = systempath + "/" + service_name
     for s in [service_name, service_name + "_monitor", service_name + ".timer"]:
         if is_unit_enabled(s):
-            _ = get_output("systemctl --user disable {}".format(s))
+            _ = systemctl("disable {}".format(s))
             print("Disabled unit {}".format(s))
         else:
             print("Unit {} was not enabled so no need to disable it".format(s))
         if is_unit_running(s):
-            _ = get_output("systemctl --user stop {}".format(s))
+            _ = systemctl("stop {}".format(s))
             print("Stopped unit {}".format(s))
         else:
             print("Unit {} was not started so no need to stop it".format(s))
-    _ = get_output("systemctl --user daemon-reload")
+    _ = systemctl("daemon-reload")
     o = run_quiet("rm {}".format(path + ".service"))
     o = run_quiet("rm {}".format(path + "_monitor.service"))
     o = run_quiet("rm {}".format(path + ".timer"))

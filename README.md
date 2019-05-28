@@ -9,7 +9,7 @@
 
 Scripts as a service. Builds on systemd.
 
-It gives you the best from screen, systemctl and journalctl.
+It gives you the best from screen, cronjobs, supervisord, systemctl and journalctl.
 
 ### Installation
 
@@ -21,11 +21,12 @@ It gives you the best from screen, systemctl and journalctl.
   <img src="https://raw.githubusercontent.com/kootenpv/sysdm/master/demo.gif"/>
 </p>
 
-### Usage
+### Usage examples
 
-    sysdm create myfile.py      # creates, starts and enables a new service file
-    sysdm ls                    # see the known services created by sysdm
-    sysdm delete                # see the known services and select to delete
+    sysdm create myfile.py               # creates, starts and enables a new service file
+    sysdm create myfile.py --timer daily # the above + schedules it to run daily
+    sysdm ls                             # see the known services created by sysdm
+    sysdm delete                         # see the known services and select to delete
 
 ### Features
 
@@ -35,6 +36,7 @@ Creating and viewing have just helped you with:
 - Uses current info to determine, and pin, working directory and virtualenv paths in your unit.
 - Script will start running, and also boot on start
 - Script will restart on error
+- Script can also be started on a schedule (e.g. `--timer daily`), using systemd timers
 - Changes to files in the directory of the same extension will cause a reload (e.g. `.py`)
 - Provides a UI for inspecting the logs of your script and start, stop etc
 - Like with screen, you can leave and it will keep on running.

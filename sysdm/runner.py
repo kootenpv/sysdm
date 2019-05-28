@@ -2,7 +2,7 @@ import re
 import time
 import signal
 from blessed import Terminal
-from sysdm.utils import get_output, is_unit_running, is_unit_enabled, read_ps_aux_by_unit
+from sysdm.utils import get_output, is_unit_running, is_unit_enabled, read_ps_aux_by_unit, systemctl
 
 from datetime import datetime, timedelta
 from collections import deque
@@ -50,7 +50,7 @@ def run(unit, systempath):
                     if timed:
                         timer_text = ""
                         while not timer_text:
-                            status = get_output("systemctl --user list-timers " + unit + ".timer")
+                            status = systemctl("list-timers " + unit + ".timer")
                             timer_text = status.split("\n")[1][4 : status.index("LEFT") - 2]
                         status = "Next: " + t.green(timer_text)
                         timer = datetime.strptime(timer_text, "%Y-%m-%d %H:%M:%S %Z")
@@ -116,6 +116,10 @@ def run(unit, systempath):
                         if "Stopped" in l:
                             l = t.bold(l)
                         if "Started" in l:
+                            if timed:
+                                ln = len(l)
+                                white = " " * 200
+                                l = (l.split("|")[0] + "| Succesfully ran on timer" + white)[:ln]
                             l = t.green(l)
                         if "WARNING: " in l:
                             l = t.yellow(l)
@@ -143,28 +147,28 @@ def run(unit, systempath):
                     print(t.clear())
                     if is_running:
                         print("Stopping unit {unit}".format(unit=unit))
-                        get_output("systemctl --user stop {unit}".format(unit=unit))
-                        get_output("systemctl --user stop {unit}.timer".format(unit=unit))
+                        systemctl("stop {unit}".format(unit=unit))
+                        systemctl("stop {unit}.timer".format(unit=unit))
                     else:
                         print("Starting unit {unit}".format(unit=unit))
-                        get_output("systemctl --user start --no-block {unit}".format(unit=unit))
-                        get_output("systemctl --user start {unit}.timer".format(unit=unit))
+                        systemctl("start --no-block {unit}".format(unit=unit))
+                        systemctl("start {unit}.timer".format(unit=unit))
                     resized = [True]
                 elif inp == "R":
                     print(t.clear())
                     print("Restarting unit {unit}".format(unit=unit))
-                    get_output("systemctl --user restart {unit}".format(unit=unit))
+                    systemctl("restart {unit}".format(unit=unit))
                     resized = [True]
                 elif inp == "T":
                     print(t.clear())
                     if is_enabled:
                         print("Disabling unit {unit} on startup".format(unit=unit))
-                        get_output("systemctl --user disable {unit}".format(unit=unit))
-                        get_output("systemctl --user disable {unit}.timer".format(unit=unit))
+                        systemctl("disable {unit}".format(unit=unit))
+                        systemctl("disable {unit}.timer".format(unit=unit))
                     else:
                         print("Enabling unit {unit} on startup".format(unit=unit))
-                        get_output("systemctl --user enable {unit}".format(unit=unit))
-                        get_output("systemctl --user enable {unit}.timer".format(unit=unit))
+                        systemctl("enable {unit}".format(unit=unit))
+                        systemctl("enable {unit}.timer".format(unit=unit))
                     resized = [True]
                 elif inp == " ":
                     print(t.clear())

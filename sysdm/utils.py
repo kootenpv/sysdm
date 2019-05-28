@@ -8,6 +8,9 @@ def get_output(cmd):
     return out.decode().strip()
 
 
+is_sudo = bool(get_output("echo $SUDO_USER"))
+
+
 def run_quiet(cmd):
     with open(os.devnull, 'w') as devnull:
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=devnull, shell=True)
@@ -16,11 +19,11 @@ def run_quiet(cmd):
 
 
 def is_unit_running(unit):
-    return get_output('systemctl --user is-active {unit}'.format(unit=unit)) == "active"
+    return systemctl('is-active {unit}'.format(unit=unit)) == "active"
 
 
 def is_unit_enabled(unit):
-    return get_output('systemctl --user is-enabled {unit}'.format(unit=unit)) == "enabled"
+    return systemctl('is-enabled {unit}'.format(unit=unit)) == "enabled"
 
 
 def read_command_from_unit(systempath, service_name):
@@ -51,3 +54,9 @@ def is_git_ignored(abspath):
 
 def to_sn(fname_or_cmd):
     return fname_or_cmd.split()[0].split("/")[-1].replace(".", "_")
+
+
+def systemctl(rest):
+    cmd = "sudo systemctl " if is_sudo else "systemctl --user "
+    cmd += rest
+    return get_output(cmd)
