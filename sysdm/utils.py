@@ -61,11 +61,11 @@ def systemctl(rest):
 
 def user_and_group_if_sudo():
     if IS_SUDO:
-        user = get_output("echo $USER")
+        user = get_output("echo $SUDO_USER")
         user_group = get_output(
             """getent group | grep $SUDO_GID: | awk -F ":" '{ print $1}'"""
         ).split("\n")[0]
-        output = "User={user}\n    Group={user_group}".format(user=user, user_group=user_group)
+        output = "User={user}\nGroup={user_group}".format(user=user, user_group=user_group)
     else:
         output = ""
     return output
