@@ -1,6 +1,14 @@
 import os
 import sys
-from sysdm.utils import get_output, run_quiet, is_unit_running, is_unit_enabled, to_sn, systemctl
+from sysdm.utils import (
+    get_output,
+    run_quiet,
+    is_unit_running,
+    is_unit_enabled,
+    to_sn,
+    systemctl,
+    USER_AND_GROUP,
+)
 
 
 def get_cmd_from_filename(fname):
@@ -79,6 +87,7 @@ def create_service_template(args):
     {on_failure}
 
     [Service]
+    {user_and_group}
     Type={service_type}
     {restart}
     ExecStart={cmd} {fname} {extra_args}
@@ -99,6 +108,7 @@ def create_service_template(args):
             part_of=part_of,
             on_failure=on_failure,
             service_type=service_type,
+            user_and_group=USER_AND_GROUP,
         )
         .strip()
     )
@@ -162,6 +172,7 @@ def create_service_monitor_template(service_name, args):
     After=network-online.target
 
     [Service]
+    {user_and_group}
     Type=simple
     Restart=always
     RestartSec=0
@@ -180,6 +191,7 @@ def create_service_monitor_template(service_name, args):
             extensions=extensions,
             exclude_patterns=exclude_patterns,
             here=here,
+            user_and_group=USER_AND_GROUP,
         )
         .strip()
     )
@@ -217,12 +229,13 @@ def create_mail_on_failure_service(args):
     Description={notify_cmd} OnFailure for %i
 
     [Service]
+    {user_and_group}
     Type=oneshot
     ExecStart={exec_start}
     """.replace(
         "\n    ", "\n"
     ).format(
-        exec_start=exec_start, notify_cmd=args.notify_cmd
+        exec_start=exec_start, notify_cmd=args.notify_cmd, user_and_group=USER_AND_GROUP
     )
     with open(
         os.path.join(args.systempath, "{}-onfailure@.service".format(args.notify_cmd)), "w"

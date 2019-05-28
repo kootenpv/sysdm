@@ -8,9 +8,6 @@ def get_output(cmd):
     return out.decode().strip()
 
 
-is_sudo = bool(get_output("echo $SUDO_USER"))
-
-
 def run_quiet(cmd):
     with open(os.devnull, 'w') as devnull:
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=devnull, shell=True)
@@ -57,6 +54,22 @@ def to_sn(fname_or_cmd):
 
 
 def systemctl(rest):
-    cmd = "sudo systemctl " if is_sudo else "systemctl --user "
+    cmd = "sudo systemctl " if IS_SUDO else "systemctl --user "
     cmd += rest
     return get_output(cmd)
+
+
+def user_and_group_if_sudo():
+    if IS_SUDO:
+        user = get_output("echo $USER")
+        user_group = get_output(
+            """getent group | grep $SUDO_GID: | awk -F ":" '{ print $1}'"""
+        ).split("\n")[0]
+        output = "User={user}\n    Group={user_group}".format(user=user, user_group=user_group)
+    else:
+        output = ""
+    return output
+
+
+IS_SUDO = bool(get_output("echo $SUDO_USER"))
+USER_AND_GROUP = user_and_group_if_sudo()
