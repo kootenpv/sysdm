@@ -2,7 +2,14 @@ import re
 import time
 import signal
 from blessed import Terminal
-from sysdm.utils import get_output, is_unit_running, is_unit_enabled, read_ps_aux_by_unit, systemctl
+from sysdm.utils import (
+    get_output,
+    is_unit_running,
+    is_unit_enabled,
+    read_ps_aux_by_unit,
+    systemctl,
+    journalctl,
+)
 
 from datetime import datetime, timedelta
 from collections import deque
@@ -98,10 +105,11 @@ def run(unit, systempath):
                     n = t.height - Y_BANNER_OFFSET - 1
                     w = t.width
                     g = "--grep " + grep if grep else ""
-                    cmd = "journalctl --user -u {u} -u {u}_monitor -u {u}.timer -n {n} --no-pager {g}".format(
-                        u=unit, n=n + log_offset + 100, g=g
+                    output = journalctl(
+                        "-u {u} -u {u}_monitor -u {u}.timer -n {n} --no-pager {g}".format(
+                            u=unit, n=n + log_offset + 100, g=g
+                        )
                     )
-                    output = get_output(cmd)
                     outp = []
                     for line in output.split("\n"):
                         # replace e.g. python[pidnum123]: real output

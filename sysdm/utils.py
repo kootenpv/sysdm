@@ -59,6 +59,12 @@ def systemctl(rest):
     return get_output(cmd)
 
 
+def journalctl(rest):
+    cmd = "journalctl " if IS_SUDO else "journalctl --user "
+    cmd += rest
+    return get_output(cmd)
+
+
 def user_and_group_if_sudo():
     if IS_SUDO:
         user = get_output("echo $SUDO_USER")
