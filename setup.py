@@ -3,7 +3,7 @@ from setuptools import setup
 
 MAJOR_VERSION = "0"
 MINOR_VERSION = "7"
-MICRO_VERSION = "26"
+MICRO_VERSION = "27"
 VERSION = "{}.{}.{}".format(MAJOR_VERSION, MINOR_VERSION, MICRO_VERSION)
 
 with open("README.md") as f:
@@ -28,8 +28,6 @@ setup(
         'Intended Audience :: Customer Service',
         'Intended Audience :: System Administrators',
         'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
-        'Operating System :: Microsoft',
-        'Operating System :: MacOS :: MacOS X',
         'Operating System :: Unix',
         'Operating System :: POSIX',
         'Programming Language :: Python',
@@ -48,5 +46,5 @@ setup(
         'Topic :: Utilities',
     ],
     zip_safe=False,
-    platforms='any',
+    platforms='posix',
 )

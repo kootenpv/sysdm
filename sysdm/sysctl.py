@@ -8,6 +8,7 @@ from sysdm.utils import (
     to_sn,
     systemctl,
     USER_AND_GROUP,
+    get_sysdm_executable,
 )
 
 
@@ -157,7 +158,7 @@ def create_timer_service(service_name, args):
 
 
 def create_service_monitor_template(service_name, args):
-    cmd = get_output("which sysdm")
+    cmd = get_sysdm_executable()
     here = os.path.abspath(".")
     fname = args.fname_or_cmd.split()[0]
     extensions = args.extensions or get_extensions_from_filename(fname)

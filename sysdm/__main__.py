@@ -3,7 +3,7 @@ import os
 from pick import Picker
 from sysdm.sysctl import install, show, ls, delete
 from sysdm.file_watcher import watch
-from sysdm.utils import get_output, is_unit_running, is_unit_enabled, to_sn
+from sysdm.utils import get_output, is_unit_running, is_unit_enabled, to_sn, systemctl
 from sysdm.runner import run
 
 
@@ -149,6 +149,8 @@ def _main():
         run(service_name, args.systempath)
     elif args.command == "show_unit":
         show(args)
+    elif args.command == "reload":
+        systemctl("daemon-reload")
     elif args.command == "watch":
         watch(args)
     elif args.command == "delete":
@@ -165,17 +167,18 @@ def _main():
             unit = args.unit
         delete(unit, args.systempath)
     elif args.command == "ls":
-        units = ls(args)
-        if units:
-            unit = choose_unit(units)
-            if unit is None:
-                sys.exit()
-            run(unit, args.systempath)
-        else:
-            print(
-                "sysdm knows of no units. Why don't you make one? `sudo sysdm create file_i_want_to_service.py`"
-            )
-
+        while True:
+            units = ls(args)
+            if units:
+                unit = choose_unit(units)
+                if unit is None:
+                    sys.exit()
+                run(unit, args.systempath)
+            else:
+                print(
+                    "sysdm knows of no units. Why don't you make one? `sysdm create file_i_want_as_service.py`"
+                )
+                break
     else:
         parser.print_help(sys.stderr)
         sys.exit(1)

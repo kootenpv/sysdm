@@ -1,4 +1,5 @@
 import re
+import sys
 import time
 import signal
 from blessed import Terminal
@@ -22,8 +23,8 @@ def run(unit, systempath):
     mapping = [
         "[R] Restart service                                                   ",
         "[S] Stop service                                                      ",
-        "[T] Enable on startup                                                 ",
-        "[G] Grep (filter) a pattern      [q] Quit view                        ",
+        "[T] Enable on startup           [b] Back                              ",
+        "[g] Grep (filter) a pattern      [q] Quit view                        ",
     ]
 
     OFFSET = 12
@@ -150,7 +151,8 @@ def run(unit, systempath):
                     if grep:
                         grep = ""
                     else:
-                        break
+                        print(t.clear())
+                        sys.exit(0)
                 elif inp == "S":
                     print(t.clear())
                     if is_running:
@@ -167,6 +169,8 @@ def run(unit, systempath):
                     print("Restarting unit {unit}".format(unit=unit))
                     systemctl("restart {unit}".format(unit=unit))
                     resized = [True]
+                elif inp == "b" or inp.name == "KEY_DELETE":
+                    return
                 elif inp == "T":
                     print(t.clear())
                     if is_enabled:
@@ -181,7 +185,7 @@ def run(unit, systempath):
                 elif inp == " ":
                     print(t.clear())
                     resized = [True]
-                elif inp == "G":
+                elif inp == "g":
                     print(t.clear())
                     if grep:
                         grep = ""

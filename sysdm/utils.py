@@ -1,3 +1,4 @@
+import sys
 import os
 import subprocess
 
@@ -75,6 +76,12 @@ def user_and_group_if_sudo():
     else:
         output = ""
     return output
+
+
+def get_sysdm_executable():
+    executable = [x for x in sys.argv if x.endswith("/sysdm")]
+    executable = executable[0] if executable else get_output("which sysdm")
+    return executable
 
 
 IS_SUDO = bool(get_output("echo $SUDO_USER"))
