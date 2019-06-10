@@ -36,10 +36,12 @@ def get_argparser(args=None):
     create.add_argument(
         '--exclude_patterns', help='Patterns of files to ignore (by default inferred)', nargs='+'
     )
+    create.add_argument('--nolist', action='store_true', help='Only create but do not list')
+    create.add_argument('--root', action='store_true', help='Only possible when using sudo')
     create.add_argument(
         '--notify_cmd',
-        default="yagmail",
-        help='Binary command that will notify. Setting this to -1 will add no notifier, default: %(default)s',
+        default="-1",
+        help='Binary command that will notify. -1 will add no notifier. Possible: yagmail, default: %(default)s',
     )
     create.add_argument(
         '--notify_status_cmd',
@@ -136,7 +138,8 @@ def _main():
         print("Creating systemd unit...")
         service_name = install(args)
         print("Done")
-        run(service_name, args.systempath)
+        if not args.nolist:
+            run(service_name, args.systempath)
     elif args.command == "view":
         service_name = to_sn(args.unit)
         if not os.path.exists(args.systempath + "/" + service_name + ".service"):

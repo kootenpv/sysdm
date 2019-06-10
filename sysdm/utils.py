@@ -66,18 +66,6 @@ def journalctl(rest):
     return get_output(cmd)
 
 
-def user_and_group_if_sudo():
-    if IS_SUDO:
-        user = get_output("echo $SUDO_USER")
-        user_group = get_output(
-            """getent group | grep $SUDO_GID: | awk -F ":" '{ print $1}'"""
-        ).split("\n")[0]
-        output = "User={user}\nGroup={user_group}".format(user=user, user_group=user_group)
-    else:
-        output = ""
-    return output
-
-
 def get_sysdm_executable():
     executable = [x for x in sys.argv if x.endswith("/sysdm")]
     executable = executable[0] if executable else get_output("which sysdm")
@@ -85,4 +73,3 @@ def get_sysdm_executable():
 
 
 IS_SUDO = bool(get_output("echo $SUDO_USER"))
-USER_AND_GROUP = user_and_group_if_sudo()

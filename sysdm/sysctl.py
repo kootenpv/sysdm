@@ -7,9 +7,34 @@ from sysdm.utils import (
     is_unit_enabled,
     to_sn,
     systemctl,
-    USER_AND_GROUP,
     get_sysdm_executable,
+    IS_SUDO,
 )
+
+USER_AND_GROUP = None
+
+
+def user_and_group_if_sudo(args):
+    global USER_AND_GROUP
+    if USER_AND_GROUP is not None:
+        return USER_AND_GROUP
+    else:
+        if IS_SUDO:
+            if args.root:
+                user = "root"
+                user_group = get_output(
+                    """getent group | grep :0: | awk -F ":" '{ print $1}'"""
+                ).split("\n")[0]
+            else:
+                user = get_output("echo $SUDO_USER")
+                user_group = get_output(
+                    """getent group | grep $SUDO_GID: | awk -F ":" '{ print $1}'"""
+                ).split("\n")[0]
+            output = "User={user}\nGroup={user_group}".format(user=user, user_group=user_group)
+        else:
+            output = ""
+    USER_AND_GROUP = output
+    return output
 
 
 def get_cmd_from_filename(fname):
@@ -109,7 +134,7 @@ def create_service_template(args):
             part_of=part_of,
             on_failure=on_failure,
             service_type=service_type,
-            user_and_group=USER_AND_GROUP,
+            user_and_group=user_and_group_if_sudo(args),
         )
         .strip()
     )
@@ -192,7 +217,7 @@ def create_service_monitor_template(service_name, args):
             extensions=extensions,
             exclude_patterns=exclude_patterns,
             here=here,
-            user_and_group=USER_AND_GROUP,
+            user_and_group=user_and_group_if_sudo(args),
         )
         .strip()
     )
@@ -236,7 +261,9 @@ def create_mail_on_failure_service(args):
     """.replace(
         "\n    ", "\n"
     ).format(
-        exec_start=exec_start, notify_cmd=args.notify_cmd, user_and_group=USER_AND_GROUP
+        exec_start=exec_start,
+        notify_cmd=args.notify_cmd,
+        user_and_group=user_and_group_if_sudo(args),
     )
     with open(
         os.path.join(args.systempath, "{}-onfailure@.service".format(args.notify_cmd)), "w"
@@ -248,6 +275,7 @@ def install(args):
     service_name, service = create_service_template(args)
     try:
         with open(os.path.join(args.systempath, service_name) + ".service", "w") as f:
+            print(service)
             f.write(service)
     except PermissionError:
         print("Need sudo to create systemd unit service file.")
