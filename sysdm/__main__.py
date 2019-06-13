@@ -3,8 +3,14 @@ import os
 from pick import Picker
 from sysdm.sysctl import install, show, ls, delete
 from sysdm.file_watcher import watch
-from sysdm.utils import get_output, is_unit_running, is_unit_enabled, to_sn, systemctl
+from sysdm.utils import get_output, is_unit_running, is_unit_enabled, to_sn, systemctl, IS_SUDO
 from sysdm.runner import run
+
+SYSTEMPATH_HELP = (
+    ', default: None. It gets expanded'
+    'It gets expanded to "~/.config/systemd/user" without sudo and otherwise'
+    'to /etc/systemd/system.'
+)
 
 
 def get_argparser(args=None):
@@ -16,9 +22,7 @@ def get_argparser(args=None):
     subparsers = parser.add_subparsers(dest="command")
     create = subparsers.add_parser('create')
     create.add_argument(
-        '--systempath',
-        default="~/.config/systemd/user",
-        help='Folder where to save the service file, default: %(default)s',
+        '--systempath', default=None, help='Folder where to save the service file' + SYSTEMPATH_HELP
     )
     create.add_argument(
         '--norestart', action='store_true', help='Whether to prevent auto restart on error'
@@ -61,15 +65,15 @@ def get_argparser(args=None):
     view = subparsers.add_parser('view')
     view.add_argument(
         '--systempath',
-        default="~/.config/systemd/user",
-        help='Folder where to look for service files',
+        default=None,
+        help='Folder where to look for service files' + SYSTEMPATH_HELP,
     )
     view.add_argument('unit', help='File/cmd/unit to observe')
     show_unit = subparsers.add_parser('show_unit')
     show_unit.add_argument(
         '--systempath',
-        default="~/.config/systemd/user",
-        help='Folder where to look for service files, default: %(default)s',
+        default=None,
+        help='Folder where to look for service files' + SYSTEMPATH_HELP,
     )
     show_unit.add_argument('unit', help='File/cmd/unit to show service')
     watch = subparsers.add_parser('watch')
@@ -82,14 +86,21 @@ def get_argparser(args=None):
     ls = subparsers.add_parser('ls')
     ls.add_argument(
         '--systempath',
-        default="~/.config/systemd/user",
-        help='Folder where to look for service files, default: %(default)s',
+        default=None,
+        help='Folder where to look for service files' + SYSTEMPATH_HELP,
     )
+    edit = subparsers.add_parser('edit')
+    edit.add_argument(
+        '--systempath',
+        default=None,
+        help='Folder where to look for service files' + SYSTEMPATH_HELP,
+    )
+    edit.add_argument('unit', nargs="?", help='File/cmd/unit to edit')
     delete = subparsers.add_parser('delete')
     delete.add_argument(
         '--systempath',
-        default="~/.config/systemd/user",
-        help='Folder where to look for service files, default: %(default)s',
+        default=None,
+        help='Folder where to look for service files' + SYSTEMPATH_HELP,
     )
     delete.add_argument('unit', nargs="?", help='File/cmd/unit to observe')
     return parser, parser.parse_args(args)
@@ -127,12 +138,16 @@ def choose_unit(units):
 def _main():
     parser, args = get_argparser()
     try:
+        if args.systempath is None:
+            args.systempath = "/etc/systemd/system" if IS_SUDO else "~/.config/systemd/user"
         args.systempath = os.path.expanduser(args.systempath)
+        args.systempath = args.systempath.rstrip("/")
         try:
             os.makedirs(args.systempath)
         except FileExistsError:
             pass
     except AttributeError:
+        # most commands have it, but not all
         pass
     if args.command == "create":
         print("Creating systemd unit...")
@@ -169,6 +184,16 @@ def _main():
         else:
             unit = args.unit
         delete(unit, args.systempath)
+    elif args.command == "edit":
+        if args.unit is None:
+            units = ls(args)
+            unit = choose_unit(units)
+            if unit is None:
+                sys.exit()
+        else:
+            unit = args.unit
+        unit = unit if unit.endswith(".service") else unit + ".service"
+        os.system("$EDITOR {}/{}".format(args.systempath, unit))
     elif args.command == "ls":
         while True:
             units = ls(args)
