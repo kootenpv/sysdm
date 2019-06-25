@@ -73,11 +73,11 @@ def get_extensions_from_filename(fname):
 def get_exclusions_from_filename(fname):
     cmd = []
     if fname.endswith(".py"):
-        cmd = ["flycheck_", "$", ".vim", "'#'"]
+        cmd = ["flycheck_", "$", ".vim", "'#'", ".swp"]
     elif fname.endswith(".sh"):
         cmd = []
     elif fname.endswith(".js"):
-        cmd = ["flycheck_", "$", ".vim", "'#'"]
+        cmd = ["flycheck_", "$", ".vim", "'#'", ".swp"]
     return cmd
 
 

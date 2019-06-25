@@ -10,13 +10,14 @@ from sysdm.utils import (
     read_ps_aux_by_unit,
     systemctl,
     journalctl,
+    get_output,
 )
 
 from datetime import datetime, timedelta
 from collections import deque
 
 
-def run(unit, systempath):
+def monitor(unit, systempath):
     t = Terminal()
     print(t.enter_fullscreen())
 
@@ -94,7 +95,8 @@ def run(unit, systempath):
                 if t.width - x_banner_offset > 50:
                     res = "| {} |".format(time.asctime())
                     if is_running:
-                        ps_info = read_ps_aux_by_unit(systempath, unit)
+                        ps_aux = get_output("ps ax -o pid,%cpu,%mem,ppid,args -ww")
+                        ps_info = read_ps_aux_by_unit(systempath, unit, ps_aux)
                         if ps_info is not None:
                             res = "| {} | PID={} | CPU {:>4}% | MEM {:>4}%".format(
                                 time.asctime(), *ps_info

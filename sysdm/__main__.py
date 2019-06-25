@@ -3,8 +3,17 @@ import os
 from pick import Picker
 from sysdm.sysctl import install, show, ls, delete
 from sysdm.file_watcher import watch
-from sysdm.utils import get_output, is_unit_running, is_unit_enabled, to_sn, systemctl, IS_SUDO
-from sysdm.runner import run
+from sysdm.utils import (
+    get_output,
+    is_unit_running,
+    is_unit_enabled,
+    to_sn,
+    systemctl,
+    IS_SUDO,
+    read_ps_aux_by_unit,
+    get_port_from_ps_and_ss,
+)
+from sysdm.runner import monitor
 
 SYSTEMPATH_HELP = (
     ', default: None. It gets expanded'
@@ -96,6 +105,14 @@ def get_argparser(args=None):
         help='Folder where to look for service files' + SYSTEMPATH_HELP,
     )
     edit.add_argument('unit', nargs="?", help='File/cmd/unit to edit')
+    run = subparsers.add_parser('run')
+    run.add_argument(
+        '--systempath',
+        default=None,
+        help='Folder where to look for service files' + SYSTEMPATH_HELP,
+    )
+    run.add_argument('unit', nargs="?", help='File/cmd/unit to observe')
+    run.add_argument('--debug', "-d", action='store_true', help='Use debug on error if available')
     delete = subparsers.add_parser('delete')
     delete.add_argument(
         '--systempath',
@@ -106,20 +123,28 @@ def get_argparser(args=None):
     return parser, parser.parse_args(args)
 
 
-def choose_unit(units):
+def choose_unit(systempath, units):
     options = []
+    ss = get_output("ss -l -p -n")
+    ps_aux = get_output("ps ax -o pid,%cpu,%mem,ppid,args -ww")
     for unit in units:
         running = "✓" if is_unit_running(unit) or is_unit_running(unit + ".timer") else "✗"
         enabled = "✓" if is_unit_enabled(unit) else "✗"
-        options.append((unit, running, enabled))
+        ps = read_ps_aux_by_unit(systempath, unit, ps_aux)
+        if ps is None:
+            port = ""
+        else:
+            pid, *_ = ps
+            port = get_port_from_ps_and_ss(pid, ss)
+        options.append((unit, running, enabled, port))
 
-    pad = "{}|    {}    |    {}    "
+    pad = "{}|    {}    |    {}    |   {}"
     offset = max([len(x[0]) for x in options]) + 3
-    formatted_options = [pad.format(x.ljust(offset), r, e) for x, r, e in options]
+    formatted_options = [pad.format(x.ljust(offset), r, e, p) for x, r, e, p in options]
     quit = "-- Quit --"
     formatted_options.append(" ")
     formatted_options.append(quit)
-    title = "These are known units:\n\n{}| Active  | Starts on boot".format(" " * (offset + 2))
+    title = "These are known units:\n\n{}| Active  | On boot |   Port".format(" " * (offset + 2))
     default_index = 0
     while True:
         p = Picker(formatted_options, title, default_index=default_index)
@@ -154,7 +179,7 @@ def _main():
         service_name = install(args)
         print("Done")
         if not args.nolist:
-            run(service_name, args.systempath)
+            monitor(service_name, args.systempath)
     elif args.command == "view":
         service_name = to_sn(args.unit)
         if not os.path.exists(args.systempath + "/" + service_name + ".service"):
@@ -164,7 +189,26 @@ def _main():
                 )
             )
             sys.exit(1)
-        run(service_name, args.systempath)
+        monitor(service_name, args.systempath)
+    elif args.command == "run":
+        if args.unit is None:
+            units = ls(args)
+            unit = choose_unit(args.systempath, units)
+            if unit is None:
+                sys.exit()
+        else:
+            unit = args.unit
+        with open(args.systempath + "/" + unit + ".service") as f:
+            for line in f:
+                line = line.strip()
+                if line.startswith("ExecStart="):
+                    cmd = line.split("ExecStart=")[1]
+                    if args.debug:
+                        cmd = cmd.replace("python3 -u", "python3 -u -m pdb")
+                        cmd = cmd.replace("python -u", "python -u -m pdb")
+                elif line.startswith("WorkingDirectory="):
+                    cwd = line.split("WorkingDirectory=")[1]
+            os.system("cd {!r} && {}".format(cwd, cmd))
     elif args.command == "show_unit":
         show(args)
     elif args.command == "reload":
@@ -174,7 +218,7 @@ def _main():
     elif args.command == "delete":
         if args.unit is None:
             units = ls(args)
-            unit = choose_unit(units)
+            unit = choose_unit(args.systempath, units)
             if unit is None:
                 sys.exit()
             inp = input("Are you sure you want to delete '{}'? [y/N]: ".format(unit))
@@ -187,7 +231,7 @@ def _main():
     elif args.command == "edit":
         if args.unit is None:
             units = ls(args)
-            unit = choose_unit(units)
+            unit = choose_unit(args.systempath, units)
             if unit is None:
                 sys.exit()
         else:
@@ -198,10 +242,10 @@ def _main():
         while True:
             units = ls(args)
             if units:
-                unit = choose_unit(units)
+                unit = choose_unit(args.systempath, units)
                 if unit is None:
                     sys.exit()
-                run(unit, args.systempath)
+                monitor(unit, args.systempath)
             else:
                 print(
                     "sysdm knows of no units. Why don't you make one? `sysdm create file_i_want_as_service.py`"

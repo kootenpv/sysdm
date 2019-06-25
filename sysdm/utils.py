@@ -31,19 +31,26 @@ def read_command_from_unit(systempath, service_name):
                 return line[10:].strip()
 
 
-def read_ps_aux_by_unit(systempath, unit):
+def read_ps_aux_by_unit(systempath, unit, ps_aux):
     cmd = read_command_from_unit(systempath, unit)
-    z = get_output("ps ax -o pid,%cpu,%mem,ppid,args -ww")
-
-    for num, line in enumerate(z.split("\n")):
+    for num, line in enumerate(ps_aux.split("\n")):
         if num == 0:
             continue
         pid, cpu, mem, ppid, *rest = line.split()
-        if ppid != "1":
-            continue
+        # # I think this was here because of sudo?
+        # if ppid != "1":
+        #     continue
         rest = " ".join(rest)
         if cmd.endswith(rest) or rest.endswith(cmd):
             return pid, cpu, mem
+
+
+def get_port_from_ps_and_ss(pid, ss):
+    result = None
+    for line in ss.split("\n"):
+        if "," + pid + "," in line or "pid=" + pid + "," in line:
+            result = line.split()[4]
+    return result or ""
 
 
 def is_git_ignored(abspath):

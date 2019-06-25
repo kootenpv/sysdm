@@ -27,6 +27,7 @@ It gives you the best from screen, cronjobs, supervisord, systemctl and journalc
     sysdm create myfile.py --timer daily # the above + schedules it to run daily
     sysdm ls                             # see the known services created by sysdm
     sysdm delete                         # see the known services and select to delete
+    sysdm run                            # run the app in the foreground (e.g for debugging)
 
 ### Features
 
