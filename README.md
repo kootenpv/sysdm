@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/kootenpv/sysdm/master/logo.png" width="300px"/>
+  <img src="logo.png" width="300px"/>
 </p>
 
 [![PyPI](https://img.shields.io/pypi/v/sysdm.svg?style=flat-square)](https://pypi.python.org/pypi/sysdm/)
