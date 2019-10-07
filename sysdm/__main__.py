@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
-
+import errno
 import sys
 import os
 from pick import Picker
@@ -183,8 +183,9 @@ def _main(argv):
         args.systempath = args.systempath.rstrip("/")
         try:
             os.makedirs(args.systempath)
-        except FileExistsError:
-            pass
+        except OSError as e:
+            if e.errno == errno.EEXIST:
+                pass
     except AttributeError:
         # most commands have it, but not all
         pass

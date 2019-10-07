@@ -1,10 +1,6 @@
-sudo: false
 env:
   - TRAVIS=true
 language: python
-dist: xenial
-
-before_install: sudo apt-get install --reinstall systemd
 
 python:
   - "2.7"
