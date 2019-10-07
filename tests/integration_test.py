@@ -28,14 +28,14 @@ def test_integration():
 
     unit_info = list_unit_info()
 
-    assert unit_info == {"trivial_script_0_py": [True, True, ""]}
+    assert unit_info == {"trivial_script_0_py": [False, False, ""]}
 
     cmd(["create", "./tests/trivial_script_1.py", "--nolist"])
 
     unit_info = list_unit_info()
     assert unit_info == {
-        "trivial_script_0_py": [True, True, ""],
-        "trivial_script_1_py": [True, True, ""],
+        "trivial_script_0_py": [False, False, ""],
+        "trivial_script_1_py": [False, False, ""],
     }
 
     cmd(["delete", "trivial_script_1_py"])
