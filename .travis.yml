@@ -1,5 +1,6 @@
 sudo: false
-
+env:
+  - TRAVIS=true
 language: python
 
 python:

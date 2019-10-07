@@ -1,3 +1,6 @@
+# -*- coding: utf-8 -*-
+from __future__ import unicode_literals
+
 from os import environ
 import pytest
 from sysdm.__main__ import _main
@@ -9,7 +12,7 @@ def cmd(args):
 
     :type args: list
     """
-    _main([...] + args)
+    _main([""] + args)
 
 
 def test_integration():

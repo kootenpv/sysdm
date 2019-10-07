@@ -1,10 +1,15 @@
+# -*- coding: utf-8 -*-
+from __future__ import unicode_literals
+
 import re
+import signal
 import sys
 import time
-import signal
+from datetime import datetime
+
 from blessed import Terminal
+
 from sysdm.utils import (
-    get_output,
     is_unit_running,
     is_unit_enabled,
     read_ps_aux_by_unit,
@@ -12,9 +17,6 @@ from sysdm.utils import (
     journalctl,
     get_output,
 )
-
-from datetime import datetime, timedelta
-from collections import deque
 
 
 def monitor(unit, systempath):

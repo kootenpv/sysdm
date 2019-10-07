@@ -36,7 +36,9 @@ def read_ps_aux_by_unit(systempath, unit, ps_aux):
     for num, line in enumerate(ps_aux.split("\n")):
         if num == 0:
             continue
-        pid, cpu, mem, ppid, *rest = line.split()
+        segments = line.split()
+        pid, cpu, mem, ppid = segments[:4]
+        rest = segments[4:]
         # # I think this was here because of sudo?
         # if ppid != "1":
         #     continue
@@ -108,7 +110,7 @@ def get_unit_info_by_names(unit_names, systempath):
         if ps is None:
             port = ""
         else:
-            pid, *_ = ps
+            pid = ps[0]
             port = get_port_from_ps_and_ss(pid, ss)  # type: str
         info[unit_name] = (running, enabled, port)
 
