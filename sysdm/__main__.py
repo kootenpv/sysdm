@@ -13,7 +13,7 @@ SYSTEMPATH_HELP = (
 )
 
 
-def get_argparser(args=None):
+def get_argparser(args):
     """ This is the function that is run from commandline with `chist` """
     import argparse
 
@@ -170,8 +170,8 @@ def choose_unit(systempath, unit_names):
     return unit_names[index]
 
 
-def _main():
-    parser, args = get_argparser()
+def _main(argv):
+    parser, args = get_argparser(argv[1:])
     try:
         if args.systempath is None:
             args.systempath = get_default_systempath()
@@ -268,6 +268,6 @@ def _main():
 
 def main():
     try:
-        _main()
+        _main(argv=sys.argv)
     except KeyboardInterrupt:
         print("Aborted")
