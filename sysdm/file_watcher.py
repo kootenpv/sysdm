@@ -8,13 +8,21 @@ from sysdm.utils import is_git_ignored
 def watch(args):
     current_dir = os.path.abspath(".")
     if not args.extensions:
-        print("WARNING: Not watching '{}' for changes (nothing to follow)".format(current_dir))
+        print(
+            "WARNING: Not watching '{}' for changes (nothing to follow)".format(
+                current_dir
+            )
+        )
         return
     i = inotify.adapters.Inotify()
 
     i.add_watch(current_dir, mask=inotify.constants.IN_CLOSE_WRITE)
 
-    print("Watching directory '{}' for changes in '{}'".format(current_dir, args.extensions))
+    print(
+        "Watching directory '{}' for changes in '{}'".format(
+            current_dir, args.extensions
+        )
+    )
     for event in i.event_gen(yield_nones=False):
         (_, _, path, filename) = event
         if any([x in filename for x in args.exclude_patterns]):

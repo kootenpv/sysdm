@@ -19,3 +19,8 @@ dist/
 extras/
 .cache/
 .timerdesign
+
+# python virtual environment
+venv
+# intelliJ IDE files
+.idea

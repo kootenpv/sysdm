@@ -30,7 +30,9 @@ def user_and_group_if_sudo(args):
                 user_group = get_output(
                     """getent group | grep $SUDO_GID: | awk -F ":" '{ print $1}'"""
                 ).split("\n")[0]
-            output = "User={user}\nGroup={user_group}".format(user=user, user_group=user_group)
+            output = "User={user}\nGroup={user_group}".format(
+                user=user, user_group=user_group
+            )
         else:
             output = ""
     USER_AND_GROUP = output
@@ -83,7 +85,10 @@ def get_exclusions_from_filename(fname):
 
 def create_service_template(args):
     here = os.path.abspath(".")
-    fname, extra_args = args.fname_or_cmd.split()[0], " ".join(args.fname_or_cmd.split()[1:])
+    fname, extra_args = (
+        args.fname_or_cmd.split()[0],
+        " ".join(args.fname_or_cmd.split()[1:]),
+    )
     binary, cmd = get_cmd_from_filename(fname)
     service_name = fname + "_" + here.split("/")[-1] if binary else fname
     service_name = to_sn(service_name)
@@ -103,7 +108,9 @@ def create_service_template(args):
     else:
         service_type = "simple"
         restart = "Restart=always\nRestartSec={delay}".format(delay=args.delay)
-        part_of = "PartOf={service_name}_monitor.service".format(service_name=service_name)
+        part_of = "PartOf={service_name}_monitor.service".format(
+            service_name=service_name
+        )
     service = (
         """
     [Unit]
@@ -190,7 +197,9 @@ def create_service_monitor_template(service_name, args):
     extensions = " ".join(extensions)
     exclude_patterns = args.exclude_patterns or get_exclusions_from_filename(fname)
     exclude_patterns = " ".join(exclude_patterns)
-    exclude_patterns = "--exclude_patterns " + exclude_patterns if exclude_patterns else ""
+    exclude_patterns = (
+        "--exclude_patterns " + exclude_patterns if exclude_patterns else ""
+    )
     service = (
         """
     [Unit]
@@ -233,7 +242,9 @@ def create_mail_on_failure_service(args):
     host = get_output("echo $HOSTNAME")
     notify_cmd_args = args.notify_cmd_args.format(home=home, host=host)
     exec_start = """/bin/bash -c '{notify_status_cmd} | {notifier} {notify_cmd_args}' """.format(
-        notify_status_cmd=args.notify_status_cmd, notifier=notifier, notify_cmd_args=notify_cmd_args
+        notify_status_cmd=args.notify_status_cmd,
+        notifier=notifier,
+        notify_cmd_args=notify_cmd_args,
     )
     print("Testing notifier ({})".format(args.notify_cmd))
     test_args = (
@@ -266,7 +277,8 @@ def create_mail_on_failure_service(args):
         user_and_group=user_and_group_if_sudo(args),
     )
     with open(
-        os.path.join(args.systempath, "{}-onfailure@.service".format(args.notify_cmd)), "w"
+        os.path.join(args.systempath, "{}-onfailure@.service".format(args.notify_cmd)),
+        "w",
     ) as f:
         f.write(service)
 
@@ -289,7 +301,9 @@ def install(args):
         _ = systemctl("start {}.timer".format(service_name))
     else:
         monitor = create_service_monitor_template(service_name, args)
-        with open(os.path.join(args.systempath, service_name) + "_monitor.service", "w") as f:
+        with open(
+            os.path.join(args.systempath, service_name) + "_monitor.service", "w"
+        ) as f:
             f.write(monitor)
         _ = systemctl("start --no-block {}".format(service_name))
         _ = systemctl("enable {}_monitor".format(service_name))
@@ -300,7 +314,9 @@ def install(args):
 def show(args):
     service_name = args.unit
     service_file = os.path.join(args.systempath, service_name) + ".service"
-    service_monitor_file = os.path.join(args.systempath, service_name) + "_monitor.service"
+    service_monitor_file = (
+        os.path.join(args.systempath, service_name) + "_monitor.service"
+    )
     service_timer_file = os.path.join(args.systempath, service_name) + ".timer"
     print("--- CONTENTS FOR {} ---".format(service_file))
     with open(service_file, "r") as f:

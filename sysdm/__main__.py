@@ -16,9 +16,9 @@ from sysdm.utils import (
 from sysdm.runner import monitor
 
 SYSTEMPATH_HELP = (
-    ', default: None. It gets expanded'
+    ", default: None. It gets expanded"
     'It gets expanded to "~/.config/systemd/user" without sudo and otherwise'
-    'to /etc/systemd/system.'
+    "to /etc/systemd/system."
 )
 
 
@@ -26,100 +26,117 @@ def get_argparser(args=None):
     """ This is the function that is run from commandline with `chist` """
     import argparse
 
-    parser = argparse.ArgumentParser(description='sysdm')
+    parser = argparse.ArgumentParser(description="sysdm")
 
     subparsers = parser.add_subparsers(dest="command")
-    create = subparsers.add_parser('create')
+    create = subparsers.add_parser("create")
     create.add_argument(
-        '--systempath', default=None, help='Folder where to save the service file' + SYSTEMPATH_HELP
+        "--systempath",
+        default=None,
+        help="Folder where to save the service file" + SYSTEMPATH_HELP,
     )
     create.add_argument(
-        '--norestart', action='store_true', help='Whether to prevent auto restart on error'
+        "--norestart",
+        action="store_true",
+        help="Whether to prevent auto restart on error",
     )
-    create.add_argument('fname_or_cmd', help='File/cmd to run')
+    create.add_argument("fname_or_cmd", help="File/cmd to run")
     create.add_argument(
-        '--delay',
-        '-d',
+        "--delay",
+        "-d",
         default=0.2,
-        help='Set a delay in the unit file before attempting restart, default: %(default)s',
+        help="Set a delay in the unit file before attempting restart, default: %(default)s",
     )
     create.add_argument(
-        '--extensions', '-w', help='Patterns of files to watch (by default inferred)', nargs='+'
+        "--extensions",
+        "-w",
+        help="Patterns of files to watch (by default inferred)",
+        nargs="+",
     )
     create.add_argument(
-        '--exclude_patterns', help='Patterns of files to ignore (by default inferred)', nargs='+'
+        "--exclude_patterns",
+        help="Patterns of files to ignore (by default inferred)",
+        nargs="+",
     )
-    create.add_argument('--nolist', action='store_true', help='Only create but do not list')
-    create.add_argument('--root', action='store_true', help='Only possible when using sudo')
     create.add_argument(
-        '--notify_cmd',
+        "--nolist", action="store_true", help="Only create but do not list"
+    )
+    create.add_argument(
+        "--root", action="store_true", help="Only possible when using sudo"
+    )
+    create.add_argument(
+        "--notify_cmd",
         default="-1",
-        help='Binary command that will notify. -1 will add no notifier. Possible: yagmail, default: %(default)s',
+        help="Binary command that will notify. -1 will add no notifier. Possible: yagmail, default: %(default)s",
     )
     create.add_argument(
-        '--notify_status_cmd',
+        "--notify_status_cmd",
         default="systemctl --user status -l -n 1000 %i",
-        help='Command that echoes output to the notifier on failure, default: %(default)s',
+        help="Command that echoes output to the notifier on failure, default: %(default)s",
     )
     create.add_argument(
-        '--notify_cmd_args',
+        "--notify_cmd_args",
         default='-s "%i failed on %H" -oauth2 {home}/oauth2.json',
-        help='Arguments passed to notify command. \n\nDefault: %(default)s. (default assumes OAuth2 gmail backend. See yagmail for details.)',
+        help="Arguments passed to notify command. \n\nDefault: %(default)s. (default assumes OAuth2 gmail backend. See yagmail for details.)",
     )
     create.add_argument(
-        '--timer',
-        default='None',
-        help='Used to set timer. Checked to be valid. E.g. *-*-* 03:00:00 for daily at 3 am.',
+        "--timer",
+        default="None",
+        help="Used to set timer. Checked to be valid. E.g. *-*-* 03:00:00 for daily at 3 am.",
     )
-    view = subparsers.add_parser('view')
+    view = subparsers.add_parser("view")
     view.add_argument(
-        '--systempath',
+        "--systempath",
         default=None,
-        help='Folder where to look for service files' + SYSTEMPATH_HELP,
+        help="Folder where to look for service files" + SYSTEMPATH_HELP,
     )
-    view.add_argument('unit', help='File/cmd/unit to observe')
-    show_unit = subparsers.add_parser('show_unit')
+    view.add_argument("unit", help="File/cmd/unit to observe")
+    show_unit = subparsers.add_parser("show_unit")
     show_unit.add_argument(
-        '--systempath',
+        "--systempath",
         default=None,
-        help='Folder where to look for service files' + SYSTEMPATH_HELP,
+        help="Folder where to look for service files" + SYSTEMPATH_HELP,
     )
-    show_unit.add_argument('unit', help='File/cmd/unit to show service')
-    watch = subparsers.add_parser('watch')
+    show_unit.add_argument("unit", help="File/cmd/unit to show service")
+    watch = subparsers.add_parser("watch")
     watch.add_argument(
-        'extensions', help='Patterns of files to watch (by default inferred)', nargs='?'
+        "extensions", help="Patterns of files to watch (by default inferred)", nargs="?"
     )
     watch.add_argument(
-        '--exclude_patterns', help='Patterns of files to ignore (by default inferred)', nargs='+'
+        "--exclude_patterns",
+        help="Patterns of files to ignore (by default inferred)",
+        nargs="+",
     )
-    ls = subparsers.add_parser('ls')
+    ls = subparsers.add_parser("ls")
     ls.add_argument(
-        '--systempath',
+        "--systempath",
         default=None,
-        help='Folder where to look for service files' + SYSTEMPATH_HELP,
+        help="Folder where to look for service files" + SYSTEMPATH_HELP,
     )
-    edit = subparsers.add_parser('edit')
+    edit = subparsers.add_parser("edit")
     edit.add_argument(
-        '--systempath',
+        "--systempath",
         default=None,
-        help='Folder where to look for service files' + SYSTEMPATH_HELP,
+        help="Folder where to look for service files" + SYSTEMPATH_HELP,
     )
-    edit.add_argument('unit', nargs="?", help='File/cmd/unit to edit')
-    run = subparsers.add_parser('run')
+    edit.add_argument("unit", nargs="?", help="File/cmd/unit to edit")
+    run = subparsers.add_parser("run")
     run.add_argument(
-        '--systempath',
+        "--systempath",
         default=None,
-        help='Folder where to look for service files' + SYSTEMPATH_HELP,
+        help="Folder where to look for service files" + SYSTEMPATH_HELP,
     )
-    run.add_argument('unit', nargs="?", help='File/cmd/unit to observe')
-    run.add_argument('--debug', "-d", action='store_true', help='Use debug on error if available')
-    delete = subparsers.add_parser('delete')
+    run.add_argument("unit", nargs="?", help="File/cmd/unit to observe")
+    run.add_argument(
+        "--debug", "-d", action="store_true", help="Use debug on error if available"
+    )
+    delete = subparsers.add_parser("delete")
     delete.add_argument(
-        '--systempath',
+        "--systempath",
         default=None,
-        help='Folder where to look for service files' + SYSTEMPATH_HELP,
+        help="Folder where to look for service files" + SYSTEMPATH_HELP,
     )
-    delete.add_argument('unit', nargs="?", help='File/cmd/unit to observe')
+    delete.add_argument("unit", nargs="?", help="File/cmd/unit to observe")
     return parser, parser.parse_args(args)
 
 
@@ -128,7 +145,9 @@ def choose_unit(systempath, units):
     ss = get_output("ss -l -p -n")
     ps_aux = get_output("ps ax -o pid,%cpu,%mem,ppid,args -ww")
     for unit in units:
-        running = "✓" if is_unit_running(unit) or is_unit_running(unit + ".timer") else "✗"
+        running = (
+            "✓" if is_unit_running(unit) or is_unit_running(unit + ".timer") else "✗"
+        )
         enabled = "✓" if is_unit_enabled(unit) else "✗"
         ps = read_ps_aux_by_unit(systempath, unit, ps_aux)
         if ps is None:
@@ -144,11 +163,13 @@ def choose_unit(systempath, units):
     quit = "-- Quit --"
     formatted_options.append(" ")
     formatted_options.append(quit)
-    title = "These are known units:\n\n{}| Active  | On boot |   Port".format(" " * (offset + 2))
+    title = "These are known units:\n\n{}| Active  | On boot |   Port".format(
+        " " * (offset + 2)
+    )
     default_index = 0
     while True:
         p = Picker(formatted_options, title, default_index=default_index)
-        p.register_custom_handler(ord('q'), lambda _: sys.exit(0))
+        p.register_custom_handler(ord("q"), lambda _: sys.exit(0))
         chosen, index = p.start()
         if chosen == quit:
             return None
@@ -164,7 +185,9 @@ def _main():
     parser, args = get_argparser()
     try:
         if args.systempath is None:
-            args.systempath = "/etc/systemd/system" if IS_SUDO else "~/.config/systemd/user"
+            args.systempath = (
+                "/etc/systemd/system" if IS_SUDO else "~/.config/systemd/user"
+            )
         args.systempath = os.path.expanduser(args.systempath)
         args.systempath = args.systempath.rstrip("/")
         try:

@@ -10,18 +10,18 @@ def get_output(cmd):
 
 
 def run_quiet(cmd):
-    with open(os.devnull, 'w') as devnull:
+    with open(os.devnull, "w") as devnull:
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=devnull, shell=True)
         (out, _) = proc.communicate()
         return out.decode().strip()
 
 
 def is_unit_running(unit):
-    return systemctl('is-active {unit}'.format(unit=unit)) == "active"
+    return systemctl("is-active {unit}".format(unit=unit)) == "active"
 
 
 def is_unit_enabled(unit):
-    return systemctl('is-enabled {unit}'.format(unit=unit)) == "enabled"
+    return systemctl("is-enabled {unit}".format(unit=unit)) == "enabled"
 
 
 def read_command_from_unit(systempath, service_name):
