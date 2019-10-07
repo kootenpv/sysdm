@@ -25,6 +25,7 @@ def test_integration():
         pytest.skip("It's recommended that integration tests only performed on travis")
 
     # fixme: on travis calling systemctl emits error "Failed to connect to bus: No such file or directory"
+    # which causes running and enabled to be False
     cmd(["create", "./tests/trivial_script_0.py", "--nolist"])
 
     unit_info = list_unit_info()
