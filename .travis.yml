@@ -3,6 +3,8 @@ env:
   - TRAVIS=true
 language: python
 
+before_install: sudo apt-get install systemd
+
 python:
   - "2.7"
   - "3.4"
