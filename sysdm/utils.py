@@ -46,6 +46,9 @@ def read_ps_aux_by_unit(systempath, unit, ps_aux):
 
 
 def get_port_from_ps_and_ss(pid, ss):
+    """
+    :return: str. Empty string or port number as a string
+    """
     result = None
     for line in ss.split("\n"):
         if "," + pid + "," in line or "pid=" + pid + "," in line:
@@ -80,3 +83,33 @@ def get_sysdm_executable():
 
 
 IS_SUDO = bool(get_output("echo $SUDO_USER"))
+
+
+def get_default_systempath():
+    """
+    try to get default systempath depending on whether sysdm is run as sudo or not.
+    """
+    return "/etc/systemd/system" if IS_SUDO else "~/.config/systemd/user"
+
+
+def get_unit_info_by_names(unit_names, systempath):
+    """
+    :return: Dict[str: Tuple[bool, bool, str ]]  name: running, enabled, port.
+        port can be an empty string
+    """
+    info = {}
+
+    ss = get_output("ss -l -p -n")
+    ps_aux = get_output("ps ax -o pid,%cpu,%mem,ppid,args -ww")
+    for unit_name in unit_names:
+        running = is_unit_running(unit_name) or is_unit_running(unit_name + ".timer")
+        enabled = is_unit_enabled(unit_name)
+        ps = read_ps_aux_by_unit(systempath, unit_name, ps_aux)
+        if ps is None:
+            port = ""
+        else:
+            pid, *_ = ps
+            port = get_port_from_ps_and_ss(pid, ss)  # type: str
+        info[unit_name] = (running, enabled, port)
+
+    return info

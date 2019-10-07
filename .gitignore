@@ -24,3 +24,6 @@ extras/
 venv
 # intelliJ IDE files
 .idea
+
+# test installation
+.tox

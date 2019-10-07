@@ -1,18 +1,9 @@
 import sys
 import os
 from pick import Picker
-from sysdm.sysctl import install, show, ls, delete
+from sysdm.sysctl import install, show, get_created_unit_names, delete
 from sysdm.file_watcher import watch
-from sysdm.utils import (
-    get_output,
-    is_unit_running,
-    is_unit_enabled,
-    to_sn,
-    systemctl,
-    IS_SUDO,
-    read_ps_aux_by_unit,
-    get_port_from_ps_and_ss,
-)
+from sysdm.utils import to_sn, systemctl, get_unit_info_by_names, get_default_systempath
 from sysdm.runner import monitor
 
 SYSTEMPATH_HELP = (
@@ -140,22 +131,20 @@ def get_argparser(args=None):
     return parser, parser.parse_args(args)
 
 
-def choose_unit(systempath, units):
+def choose_unit(systempath, unit_names):
+    """
+    display interactive console and let user select a unit to inspect
+
+    :param systempath:
+    :param unit_names: units created with sysmd
+    :return: the name of the chosen unit
+    """
+
     options = []
-    ss = get_output("ss -l -p -n")
-    ps_aux = get_output("ps ax -o pid,%cpu,%mem,ppid,args -ww")
-    for unit in units:
-        running = (
-            "✓" if is_unit_running(unit) or is_unit_running(unit + ".timer") else "✗"
-        )
-        enabled = "✓" if is_unit_enabled(unit) else "✗"
-        ps = read_ps_aux_by_unit(systempath, unit, ps_aux)
-        if ps is None:
-            port = ""
-        else:
-            pid, *_ = ps
-            port = get_port_from_ps_and_ss(pid, ss)
-        options.append((unit, running, enabled, port))
+    for unit_name, unit_info in get_unit_info_by_names(unit_names, systempath).items():
+        running, enabled, port = unit_info
+        option = [unit_name, "✓" if running else "✗", "✓" if enabled else "✗", port]
+        options.append(option)
 
     pad = "{}|    {}    |    {}    |   {}"
     offset = max([len(x[0]) for x in options]) + 3
@@ -178,16 +167,14 @@ def choose_unit(systempath, units):
             continue
         else:
             break
-    return units[index]
+    return unit_names[index]
 
 
 def _main():
     parser, args = get_argparser()
     try:
         if args.systempath is None:
-            args.systempath = (
-                "/etc/systemd/system" if IS_SUDO else "~/.config/systemd/user"
-            )
+            args.systempath = get_default_systempath()
         args.systempath = os.path.expanduser(args.systempath)
         args.systempath = args.systempath.rstrip("/")
         try:
@@ -215,8 +202,8 @@ def _main():
         monitor(service_name, args.systempath)
     elif args.command == "run":
         if args.unit is None:
-            units = ls(args)
-            unit = choose_unit(args.systempath, units)
+            unit_names = get_created_unit_names(args.systempath)
+            unit = choose_unit(args.systempath, unit_names)
             if unit is None:
                 sys.exit()
         else:
@@ -240,8 +227,8 @@ def _main():
         watch(args)
     elif args.command == "delete":
         if args.unit is None:
-            units = ls(args)
-            unit = choose_unit(args.systempath, units)
+            unit_names = get_created_unit_names(args.systempath)
+            unit = choose_unit(args.systempath, unit_names)
             if unit is None:
                 sys.exit()
             inp = input("Are you sure you want to delete '{}'? [y/N]: ".format(unit))
@@ -253,8 +240,8 @@ def _main():
         delete(unit, args.systempath)
     elif args.command == "edit":
         if args.unit is None:
-            units = ls(args)
-            unit = choose_unit(args.systempath, units)
+            unit_names = get_created_unit_names(args.systempath)
+            unit = choose_unit(args.systempath, unit_names)
             if unit is None:
                 sys.exit()
         else:
@@ -263,9 +250,9 @@ def _main():
         os.system("$EDITOR {}/{}".format(args.systempath, unit))
     elif args.command == "ls":
         while True:
-            units = ls(args)
-            if units:
-                unit = choose_unit(args.systempath, units)
+            unit_names = get_created_unit_names(args.systempath)
+            if unit_names:
+                unit = choose_unit(args.systempath, unit_names)
                 if unit is None:
                     sys.exit()
                 monitor(unit, args.systempath)

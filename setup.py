@@ -21,7 +21,8 @@ setup(
     entry_points={"console_scripts": ["sysdm = sysdm.__main__:main"]},
     license="MIT",
     install_requires=["inotify", "blessed", "pick", "yagmail"],
-    packages=find_packages(),
+    extras_require={"dev": ["tox", "pytest", "pytest-xdist"]},
+    packages=find_packages(exclude=["tests"]),
     classifiers=[
         "Environment :: Console",
         "Intended Audience :: Developers",

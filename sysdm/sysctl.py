@@ -335,12 +335,15 @@ def show(args):
         pass
 
 
-def ls(args):
+def get_created_unit_names(systempath):
+    """
+    return the names of created units
+    """
     units = []
-    for fname in os.listdir(args.systempath):
+    for fname in os.listdir(systempath):
         if "_monitor.s" in fname or fname.endswith(".timer"):
             continue
-        fpath = args.systempath + "/" + fname
+        fpath = systempath + "/" + fname
         if os.path.isdir(fpath):
             continue
         with open(fpath) as f:
