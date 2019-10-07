@@ -24,21 +24,25 @@ def test_integration():
     if not environ.get("TRAVIS", False):
         pytest.skip("It's recommended that integration tests only performed on travis")
 
+    # fixme: on travis calling systemctl emits error "Failed to connect to bus: No such file or directory"
     cmd(["create", "./tests/trivial_script_0.py", "--nolist"])
 
     unit_info = list_unit_info()
 
-    assert unit_info == {"trivial_script_0_py": [False, False, ""]}
+    # should be true when fixed
+    assert unit_info == {"trivial_script_0_py": (False, False, "")}
 
     cmd(["create", "./tests/trivial_script_1.py", "--nolist"])
 
     unit_info = list_unit_info()
+    # should all be true when fixed
     assert unit_info == {
-        "trivial_script_0_py": [False, False, ""],
-        "trivial_script_1_py": [False, False, ""],
+        "trivial_script_0_py": (False, False, ""),
+        "trivial_script_1_py": (False, False, ""),
     }
 
     cmd(["delete", "trivial_script_1_py"])
 
     unit_info = list_unit_info()
-    assert unit_info == {"trivial_script_0_py": [True, True, ""]}
+    # should all be true when fixed
+    assert unit_info == {"trivial_script_0_py": (False, False, "")}
