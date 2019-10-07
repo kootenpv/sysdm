@@ -24,7 +24,7 @@ It gives you the best from screen, cronjobs, supervisord, systemctl and journalc
 ### Usage examples
 
     sysdm create myfile.py               # creates, starts and enables a new service file
-    sysdm create exe                     # executable/shell scripts are also supported
+    sysdm create exefile                 # executable/shell scripts are also supported
     sysdm create myfile.py --timer daily # the above + schedules it to run daily
     sysdm ls                             # see the known services created by sysdm
     sysdm delete                         # see the known services and select to delete
@@ -49,3 +49,29 @@ Creating and viewing have just helped you with:
 - Multiple people can look at it, too, when sharing a server.
 - Provides flags to change settings
 - UI is aware of the window-size
+
+### Public API
+
+You can also embed `sysdm` in your code
+
+It comes with this simple API that tells your all the units created by sysdm
+
+```.python
+def list_unit_info(systempath=None):
+    """
+    get a list of created sysdm units and their status
+
+    :param systempath: Optional[str]. Folder where the service files are saved. It defaults to "~/.config/systemd/user"
+        without sudo and otherwise to /etc/systemd/system.
+
+    :return: Dict[str, Tuple[bool, bool, str] ]  a dict in the form of {unit_name:  (running, enabled, port)}.
+        port can be an empty string
+    """
+```
+
+```.python
+from sysdm import list_unit_info
+
+>>> list_unit_info()
+{'service_0': (True, True, ''), 'service_1': (True, False, '')}
+```
