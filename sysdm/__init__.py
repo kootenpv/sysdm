@@ -1,3 +1,4 @@
+import os
 import sys
 
 from sysdm.sysctl import get_created_unit_names
@@ -33,5 +34,8 @@ def list_unit_info(systempath=None):
     """
     if systempath is None:
         systempath = get_default_systempath()
+    systempath = os.path.expanduser(systempath)
+    systempath = systempath.rstrip("/")
+
     unit_names = get_created_unit_names(systempath)
     return get_unit_info_by_names(unit_names, systempath)
