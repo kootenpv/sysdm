@@ -24,9 +24,7 @@ class Base:
 
     @property
     def on_failure_name(self):
-        return "OnFailure={}@%i.service".format(
-            self.description.lower().replace(" ", "-")
-        )
+        return "OnFailure={}@%i.service".format(self.description.lower().replace(" ", "-"))
 
     @property
     def user(self):

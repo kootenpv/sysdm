@@ -62,20 +62,14 @@ def monitor(unit, systempath):
                         timer_text = ""
                         while not timer_text:
                             status = systemctl("list-timers " + unit + ".timer")
-                            timer_text = status.split("\n")[1][
-                                4 : status.index("LEFT") - 2
-                            ]
+                            timer_text = status.split("\n")[1][4 : status.index("LEFT") - 2]
                         status = "Next: " + t.green(timer_text)
                         timer = datetime.strptime(timer_text, "%Y-%m-%d %H:%M:%S %Z")
                     else:
-                        status = "Active: " + (
-                            t.green("✓") if is_running else t.red("✗")
-                        )
+                        status = "Active: " + (t.green("✓") if is_running else t.red("✗"))
                     with t.location(OFFSET, 0):
                         enabled = t.green("✓") if is_enabled else t.red("✗")
-                        line = "Unit: {} {} On Startup: {}".format(
-                            t.bold(unit), status, enabled
-                        )
+                        line = "Unit: {} {} On Startup: {}".format(t.bold(unit), status, enabled)
                         x_banner_offset = len(line)
                         print(line)
 
@@ -90,12 +84,8 @@ def monitor(unit, systempath):
                             if not is_running:
                                 line = line.replace("Stop service ", "Start service")
                             if is_enabled:
-                                line = line.replace(
-                                    "Enable on startup", "Disable on startup"
-                                )
-                            line = line.replace("[", "[" + t.green).replace(
-                                "]", t.normal + "]"
-                            )
+                                line = line.replace("Enable on startup", "Disable on startup")
+                            line = line.replace("[", "[" + t.green).replace("]", t.normal + "]")
                             print(" " * OFFSET + (line + " " * t.width)[: t.width + 3])
 
                     with t.location(0, 6):
@@ -142,11 +132,7 @@ def monitor(unit, systempath):
                             if timed:
                                 ln = len(l)
                                 white = " " * 200
-                                l = (
-                                    l.split("|")[0]
-                                    + "| Succesfully ran on timer"
-                                    + white
-                                )[:ln]
+                                l = (l.split("|")[0] + "| Succesfully ran on timer" + white)[:ln]
                             l = t.green(l)
                         if "WARNING: " in l:
                             l = t.yellow(l)

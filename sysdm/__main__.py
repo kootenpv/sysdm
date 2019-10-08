@@ -26,14 +26,10 @@ def get_argparser(args):
     subparsers = parser.add_subparsers(dest="command")
     create = subparsers.add_parser("create")
     create.add_argument(
-        "--systempath",
-        default=None,
-        help="Folder where to save the service file" + SYSTEMPATH_HELP,
+        "--systempath", default=None, help="Folder where to save the service file" + SYSTEMPATH_HELP
     )
     create.add_argument(
-        "--norestart",
-        action="store_true",
-        help="Whether to prevent auto restart on error",
+        "--norestart", action="store_true", help="Whether to prevent auto restart on error"
     )
     create.add_argument("fname_or_cmd", help="File/cmd to run")
     create.add_argument(
@@ -43,22 +39,13 @@ def get_argparser(args):
         help="Set a delay in the unit file before attempting restart, default: %(default)s",
     )
     create.add_argument(
-        "--extensions",
-        "-w",
-        help="Patterns of files to watch (by default inferred)",
-        nargs="+",
+        "--extensions", "-w", help="Patterns of files to watch (by default inferred)", nargs="+"
     )
     create.add_argument(
-        "--exclude_patterns",
-        help="Patterns of files to ignore (by default inferred)",
-        nargs="+",
+        "--exclude_patterns", help="Patterns of files to ignore (by default inferred)", nargs="+"
     )
-    create.add_argument(
-        "--nolist", action="store_true", help="Only create but do not list"
-    )
-    create.add_argument(
-        "--root", action="store_true", help="Only possible when using sudo"
-    )
+    create.add_argument("--nolist", action="store_true", help="Only create but do not list")
+    create.add_argument("--root", action="store_true", help="Only possible when using sudo")
     create.add_argument(
         "--notify_cmd",
         default="-1",
@@ -98,9 +85,7 @@ def get_argparser(args):
         "extensions", help="Patterns of files to watch (by default inferred)", nargs="?"
     )
     watch.add_argument(
-        "--exclude_patterns",
-        help="Patterns of files to ignore (by default inferred)",
-        nargs="+",
+        "--exclude_patterns", help="Patterns of files to ignore (by default inferred)", nargs="+"
     )
     ls = subparsers.add_parser("ls")
     ls.add_argument(
@@ -122,9 +107,7 @@ def get_argparser(args):
         help="Folder where to look for service files" + SYSTEMPATH_HELP,
     )
     run.add_argument("unit", nargs="?", help="File/cmd/unit to observe")
-    run.add_argument(
-        "--debug", "-d", action="store_true", help="Use debug on error if available"
-    )
+    run.add_argument("--debug", "-d", action="store_true", help="Use debug on error if available")
     delete = subparsers.add_parser("delete")
     delete.add_argument(
         "--systempath",
@@ -156,9 +139,7 @@ def choose_unit(systempath, unit_names):
     quit = "-- Quit --"
     formatted_options.append(" ")
     formatted_options.append(quit)
-    title = "These are known units:\n\n{}| Active  | On boot |   Port".format(
-        " " * (offset + 2)
-    )
+    title = "These are known units:\n\n{}| Active  | On boot |   Port".format(" " * (offset + 2))
     default_index = 0
     while True:
         p = Picker(formatted_options, title, default_index=default_index)
