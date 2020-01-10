@@ -104,6 +104,8 @@ def create_service_template(args):
         service_type = "simple"
         restart = "Restart=always\nRestartSec={delay}".format(delay=args.delay)
         part_of = "PartOf={service_name}_monitor.service".format(service_name=service_name)
+    user_and_group = user_and_group_if_sudo(args)
+    wanted_by = "default.target" if user_and_group.strip() else "multi-user.target"
     service = (
         """
     [Unit]
@@ -120,7 +122,7 @@ def create_service_template(args):
     WorkingDirectory={here}
 
     [Install]
-    WantedBy=multi-user.target
+    WantedBy={wanted_by}
     """.replace(
             "\n    ", "\n"
         )
@@ -134,7 +136,8 @@ def create_service_template(args):
             part_of=part_of,
             on_failure=on_failure,
             service_type=service_type,
-            user_and_group=user_and_group_if_sudo(args),
+            user_and_group=user_and_group,
+            wanted_by=wanted_by,
         )
         .strip()
     )
@@ -191,6 +194,8 @@ def create_service_monitor_template(service_name, args):
     exclude_patterns = args.exclude_patterns or get_exclusions_from_filename(fname)
     exclude_patterns = " ".join(exclude_patterns)
     exclude_patterns = "--exclude_patterns " + exclude_patterns if exclude_patterns else ""
+    user_and_group = user_and_group_if_sudo(args)
+    wanted_by = "default.target" if user_and_group.strip() else "multi-user.target"
     service = (
         """
     [Unit]
@@ -207,7 +212,7 @@ def create_service_monitor_template(service_name, args):
     WorkingDirectory={here}
 
     [Install]
-    WantedBy=multi-user.target
+    WantedBy={wanted_by}
     """.replace(
             "\n    ", "\n"
         )
@@ -217,7 +222,8 @@ def create_service_monitor_template(service_name, args):
             extensions=extensions,
             exclude_patterns=exclude_patterns,
             here=here,
-            user_and_group=user_and_group_if_sudo(args),
+            user_and_group=user_and_group,
+            wanted_by=wanted_by,
         )
         .strip()
     )
