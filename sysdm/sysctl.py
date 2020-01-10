@@ -105,7 +105,7 @@ def create_service_template(args):
         restart = "Restart=always\nRestartSec={delay}".format(delay=args.delay)
         part_of = "PartOf={service_name}_monitor.service".format(service_name=service_name)
     user_and_group = user_and_group_if_sudo(args)
-    wanted_by = "default.target" if user_and_group.strip() else "multi-user.target"
+    wanted_by = "multi-user.target" if user_and_group.strip() else "default.target"
     service = (
         """
     [Unit]
@@ -195,7 +195,7 @@ def create_service_monitor_template(service_name, args):
     exclude_patterns = " ".join(exclude_patterns)
     exclude_patterns = "--exclude_patterns " + exclude_patterns if exclude_patterns else ""
     user_and_group = user_and_group_if_sudo(args)
-    wanted_by = "default.target" if user_and_group.strip() else "multi-user.target"
+    wanted_by = "multi-user.target" if user_and_group.strip() else "default.target"
     service = (
         """
     [Unit]
