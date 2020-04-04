@@ -67,9 +67,7 @@ def systemctl(rest):
     return get_output(cmd)
 
 
-def journalctl(rest):
-    cmd = "journalctl " if IS_SUDO else "journalctl --user "
-    cmd += rest
+def journalctl(cmd):
     return get_output(cmd)
 
 

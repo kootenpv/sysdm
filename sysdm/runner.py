@@ -11,6 +11,7 @@ from sysdm.utils import (
     systemctl,
     journalctl,
     get_output,
+    IS_SUDO,
 )
 
 from datetime import datetime, timedelta
@@ -62,7 +63,7 @@ def monitor(unit, systempath):
                             status = systemctl("list-timers " + unit + ".timer")
                             timer_text = status.split("\n")[1][4 : status.index("LEFT") - 2]
                         status = "Next: " + t.green(timer_text)
-                        timer = datetime.strptime(timer_text, "%Y-%m-%d %H:%M:%S %Z")
+                        timer = datetime.strptime(timer_text[:19], "%Y-%m-%d %H:%M:%S")
                     else:
                         status = "Active: " + (t.green("✓") if is_running else t.red("✗"))
                     with t.location(OFFSET, 0):
@@ -108,9 +109,10 @@ def monitor(unit, systempath):
                     n = t.height - Y_BANNER_OFFSET - 1
                     w = t.width
                     g = "--grep " + grep if grep else ""
+                    u_sep = "-u" if IS_SUDO else "--user-unit"
                     output = journalctl(
-                        "-u {u} -u {u}_monitor -u {u}.timer -n {n} --no-pager {g}".format(
-                            u=unit, n=n + log_offset + 100, g=g
+                        "journalctl {u_sep} {u} {u_sep} {u}_monitor {u_sep} {u}.timer -n {n} --no-pager {g}".format(
+                            u=unit, n=n + log_offset + 100, g=g, u_sep=u_sep
                         )
                     )
                     outp = []
