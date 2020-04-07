@@ -9,6 +9,7 @@ from sysdm.utils import (
     systemctl,
     get_sysdm_executable,
     IS_SUDO,
+    linger,
 )
 
 USER_AND_GROUP = None
@@ -300,6 +301,7 @@ def install(args):
         _ = systemctl("start --no-block {}".format(service_name))
         _ = systemctl("enable {}_monitor".format(service_name))
         _ = systemctl("start {}_monitor".format(service_name))
+    print(linger())
     return service_name
 
 

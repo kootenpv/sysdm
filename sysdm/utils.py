@@ -67,6 +67,11 @@ def systemctl(rest):
     return get_output(cmd)
 
 
+def linger():
+    if not IS_SUDO:
+        return get_output("loginctl enable-linger $USER")
+
+
 def journalctl(cmd):
     return get_output(cmd)
 
