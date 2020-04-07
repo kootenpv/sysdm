@@ -14,7 +14,9 @@ def watch(args):
 
     i.add_watch(current_dir, mask=inotify.constants.IN_CLOSE_WRITE)
 
-    print("Watching directory '{}' for changes in '{}'".format(current_dir, args.extensions))
+    extensions = [args.extensions] if isinstance(args.extensions, str) else args.extensions
+
+    print("Watching directory '{}' for changes in '{}'".format(current_dir, extensions))
     for event in i.event_gen(yield_nones=False):
         (_, _, path, filename) = event
         if any([x in filename for x in args.exclude_patterns]):
@@ -22,7 +24,10 @@ def watch(args):
         if os.path.exists(".git") and is_git_ignored(os.path.join(path, filename)):
             print("File '{}' changed but ignored by gitignore".format(filename))
             continue
-        if any([filename.endswith(x) for x in args.extensions]):
+        if any([filename.endswith(x) for x in extensions]):
+            import pdb
+
+            pdb.set_trace()
             print(
                 "File '{filename}' changed in '{path}', restarting service".format(
                     filename=filename, path=path
