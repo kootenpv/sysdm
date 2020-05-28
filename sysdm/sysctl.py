@@ -106,7 +106,12 @@ def create_service_template(args):
         restart = "Restart=always\nRestartSec={delay}".format(delay=args.delay)
         part_of = "PartOf={service_name}_monitor.service".format(service_name=service_name)
     user_and_group = user_and_group_if_sudo(args)
-    wanted_by = "multi-user.target" if user_and_group.strip() else "default.target"
+    if timer:
+        install = ""
+    else:
+        wanted_by = "multi-user.target" if user_and_group.strip() else "default.target"
+        install = "[Install]\nWantedBy={wanted_by}".format(wanted_by)
+    bool(timer)
     service = (
         """
     [Unit]
@@ -122,8 +127,7 @@ def create_service_template(args):
     ExecStart={cmd} {fname} {extra_args}
     WorkingDirectory={here}
 
-    [Install]
-    WantedBy={wanted_by}
+    {install}
     """.replace(
             "\n    ", "\n"
         )
@@ -138,7 +142,7 @@ def create_service_template(args):
             on_failure=on_failure,
             service_type=service_type,
             user_and_group=user_and_group,
-            wanted_by=wanted_by,
+            install=install,
         )
         .strip()
     )
@@ -289,12 +293,11 @@ def install(args):
         sys.exit(1)
     create_mail_on_failure_service(args)
     _ = systemctl("daemon-reload")
-    _ = systemctl("enable {}".format(service_name))
     create_timer = create_timer_service(service_name, args)
     if create_timer:
         _ = systemctl("enable {}.timer".format(service_name))
-        _ = systemctl("start {}.timer".format(service_name))
     else:
+        _ = systemctl("enable {}".format(service_name))
         monitor = create_service_monitor_template(service_name, args)
         with open(os.path.join(args.systempath, service_name) + "_monitor.service", "w") as f:
             f.write(monitor)
