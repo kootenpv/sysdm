@@ -129,7 +129,7 @@ def choose_unit(systempath, units):
     ps_aux = get_output("ps ax -o pid,%cpu,%mem,ppid,args -ww")
     for unit in units:
         running = "✓" if is_unit_running(unit) or is_unit_running(unit + ".timer") else "✗"
-        enabled = "✓" if is_unit_enabled(unit) else "✗"
+        enabled = "✓" if is_unit_enabled(unit) or is_unit_enabled(unit + ".timer") else "✗"
         ps = read_ps_aux_by_unit(systempath, unit, ps_aux)
         if ps is None:
             port = ""

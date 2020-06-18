@@ -296,6 +296,7 @@ def install(args):
     create_timer = create_timer_service(service_name, args)
     if create_timer:
         _ = systemctl("enable {}.timer".format(service_name))
+        _ = systemctl("start {}.timer".format(service_name))
     else:
         _ = systemctl("enable {}".format(service_name))
         monitor = create_service_monitor_template(service_name, args)

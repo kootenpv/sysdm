@@ -12,6 +12,7 @@ def watch(args):
         return
     i = inotify.adapters.Inotify()
 
+    # i.add_watch(current_dir, mask=inotify.constants.IN_MODIFY)
     i.add_watch(current_dir, mask=inotify.constants.IN_CLOSE_WRITE)
 
     extensions = [args.extensions] if isinstance(args.extensions, str) else args.extensions
@@ -24,10 +25,13 @@ def watch(args):
         if os.path.exists(".git") and is_git_ignored(os.path.join(path, filename)):
             print("File '{}' changed but ignored by gitignore".format(filename))
             continue
-        if any([filename.endswith(x) for x in extensions]):
-            import pdb
-
-            pdb.set_trace()
+        # :-7 is for rsync using a postfix for the file (e.g. '.ss.py.vFiJcy')
+        if any(
+            [
+                filename.endswith(x) or (filename.startswith(".") and filename[:-7].endswith(x))
+                for x in extensions
+            ]
+        ):
             print(
                 "File '{filename}' changed in '{path}', restarting service".format(
                     filename=filename, path=path
