@@ -21,7 +21,7 @@ def is_unit_running(unit):
 
 
 def is_unit_enabled(unit):
-    return systemctl('is-enabled {unit}'.format(unit=unit)) == "enabled"
+    return systemctl('is-enabled {unit} 2> /dev/null'.format(unit=unit)) == "enabled"
 
 
 def read_command_from_unit(systempath, service_name):
