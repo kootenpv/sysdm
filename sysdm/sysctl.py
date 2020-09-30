@@ -333,7 +333,7 @@ def show(args):
 
 def ls(args):
     units = []
-    for fname in os.listdir(args.systempath):
+    for fname in sorted(os.listdir(args.systempath)):
         if "_monitor.s" in fname or fname.endswith(".timer"):
             continue
         fpath = args.systempath + "/" + fname
