@@ -110,8 +110,8 @@ def create_service_template(args):
         install = ""
     else:
         wanted_by = "multi-user.target" if user_and_group.strip() else "default.target"
+        wanted_by += " " + service_name + "_monitor.service"
         install = "[Install]\nWantedBy={wanted_by}".format(wanted_by=wanted_by)
-    bool(timer)
     service = (
         """
     [Unit]
