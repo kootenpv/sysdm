@@ -1,7 +1,16 @@
 import sys
 import os
 from pick import Picker
-from sysdm.sysctl import install, show, ls, delete
+from sysdm.sysctl import (
+    show,
+    ls,
+    delete,
+    create_service_template,
+    create_mail_on_failure_service,
+    create_timer_service,
+    create_service_monitor_template,
+    linger,
+)
 from sysdm.file_watcher import watch
 from sysdm.utils import (
     get_output,
@@ -13,114 +22,196 @@ from sysdm.utils import (
     read_ps_aux_by_unit,
     get_port_from_ps_and_ss,
 )
+from cliche import cli, main
 from sysdm.runner import monitor
 
-SYSTEMPATH_HELP = (
-    ', default: None. It gets expanded'
-    'It gets expanded to "~/.config/systemd/user" without sudo and otherwise'
-    'to /etc/systemd/system.'
-)
+
+class Sysdm:
+    def __init__(self, systempath: str = None):
+        """
+        :param systempath: If None, gets expanded to "~/.config/systemd/user" without sudo
+                           and otherwise to /etc/systemd/system.
+        """
+        if systempath is None:
+            systempath = "/etc/systemd/system" if IS_SUDO else "~/.config/systemd/user"
+        systempath = os.path.expanduser(systempath)
+        systempath = systempath.rstrip("/")
+        try:
+            os.makedirs(systempath)
+        except FileExistsError:
+            pass
+        self.systempath = systempath
+
+    @cli
+    def create(
+        self,
+        fname_or_cmd: str,
+        restart=True,
+        timer: str = None,
+        killaftertimeout=90,
+        delay=0.2,
+        extensions=[],
+        exclude_patterns=[],
+        ls=True,
+        root=False,
+        notify_cmd="-1",
+        notify_status_cmd="systemctl --user status -l -n 1000 %i",
+        notify_cmd_args='-s "%i failed on %H"',
+    ):
+        """
+        :param fname_or_cmd: File/cmd to run
+        :param restart: Whether to prevent auto restart on error
+        :param timer: Used to set timer. Checked to be valid. E.g. *-*-* 03:00:00 for daily at 3 am.
+        :param killaftertimeout: Time before sending kill signal if unresponsive when try to restart
+        :param delay: Set a delay in the unit file before attempting restart
+        :param extensions: Patterns of files to watch (by default inferred)
+        :param exclude_patterns: Patterns of files to ignore (by default inferred)
+        :param ls: Only create but do not list
+        :param root: Only possible when using sudo
+        :param notify_cmd: Binary command that will notify. -1 will add no notifier. Possible: e.g. yagmail
+        :param notify_status_cmd: Command that echoes output to the notifier on failure
+        :param notify_cmd_args: Arguments passed to notify command.
+        """
+        print("Creating systemd unit...")
+        service_name, service = create_service_template(
+            fname_or_cmd, notify_cmd, timer, delay, root, killaftertimeout
+        )
+        try:
+            with open(os.path.join(self.systempath, service_name) + ".service", "w") as f:
+                print(service)
+                f.write(service)
+        except PermissionError:
+            print("Need sudo to create systemd unit service file.")
+            sys.exit(1)
+        create_mail_on_failure_service(
+            self.systempath, notify_cmd, notify_status_cmd, notify_status_cmd, root
+        )
+        _ = systemctl("daemon-reload")
+        create_timer = create_timer_service(self.systempath, service_name, timer)
+        if create_timer:
+            _ = systemctl("enable {}.timer".format(service_name))
+            _ = systemctl("start {}.timer".format(service_name))
+        else:
+            _ = systemctl("enable {}".format(service_name))
+            monitor_str = create_service_monitor_template(
+                service_name, fname_or_cmd, extensions, exclude_patterns, root
+            )
+            with open(os.path.join(self.systempath, service_name) + "_monitor.service", "w") as f:
+                f.write(monitor_str)
+            _ = systemctl("start --no-block {}".format(service_name))
+            _ = systemctl("enable {}_monitor".format(service_name))
+            _ = systemctl("start {}_monitor".format(service_name))
+        print(linger())
+        print("Done")
+        if ls:
+            monitor(service_name, self.systempath)
+
+    @cli
+    def view(self, unit: str):
+        """
+        :param unit: File/cmd/unit to observe. Dots will be replaced with _ automatically
+        """
+        service_name = to_sn(unit)
+        if not os.path.exists(self.systempath + "/" + service_name + ".service"):
+            print(
+                "Service file does not exist. You can start by running:\n\n    sysdm create {}\n\nto create a service or run:\n\n    sysdm ls\n\nto see the services already created by sysdm.".format(
+                    unit
+                )
+            )
+            sys.exit(1)
+        monitor(service_name, self.systempath)
+
+    @cli
+    def show_unit(self, unit: str = None):
+        """
+        :param unit: File/cmd/unit to print unit file. Dots will be replaced with _ automatically
+        """
+        if unit is None:
+            units = ls(self.systempath)
+            unit = choose_unit(self.systempath, units)
+            if unit is None:
+                sys.exit()
+        show(self.systempath, unit)
+
+    @cli
+    def ls(self):
+        """ Interactively show units and allow viewing them """
+        while True:
+            units = ls(self.systempath)
+            if units:
+                unit = choose_unit(self.systempath, units)
+                if unit is None:
+                    sys.exit()
+                monitor(unit, self.systempath)
+            else:
+                print(
+                    "sysdm knows of no units. Why don't you make one? `sysdm create file_i_want_as_service.py`"
+                )
+                break
+
+    @cli
+    def edit(self, unit: str = None):
+        """
+        :param unit: File/cmd/unit to edit. When omitted, show choices.
+        """
+        if unit is None:
+            units = ls(self.systempath)
+            unit = choose_unit(self.systempath, units)
+            if unit is None:
+                sys.exit()
+        unit = unit if unit.endswith(".service") else unit + ".service"
+        os.system("$EDITOR {}/{}".format(self.systempath, unit))
+
+    @cli
+    def run(self, unit: str = None, debug=False):
+        """
+        :param unit: File/cmd/unit to run.
+        :param debug: Use debug on error if available
+        """
+        if unit is None:
+            units = ls(self.systempath)
+            unit = choose_unit(self.systempath, units)
+            if unit is None:
+                sys.exit()
+        with open(self.systempath + "/" + unit + ".service") as f:
+            for line in f:
+                line = line.strip()
+                if line.startswith("ExecStart="):
+                    cmd = line.split("ExecStart=")[1]
+                    if debug:
+                        cmd = cmd.replace("python3 -u", "python3 -u -m pdb")
+                        cmd = cmd.replace("python -u", "python -u -m pdb")
+                elif line.startswith("WorkingDirectory="):
+                    cwd = line.split("WorkingDirectory=")[1]
+            os.system("cd {!r} && {}".format(cwd, cmd))
+
+    @cli
+    def delete(self, unit: str = None):
+        ":param unit: File/cmd/unit to delete. When omitted, show choices."
+        if unit is None:
+            units = ls(self.systempath)
+            unit = choose_unit(self.systempath, units)
+            if unit is None:
+                sys.exit()
+            inp = input("Are you sure you want to delete '{}'? [y/N]: ".format(unit))
+            if inp.lower().strip() != "y":
+                print("Aborting")
+                return
+        delete(unit, self.systempath)
 
 
-def get_argparser(args=None):
-    """ This is the function that is run from commandline with `chist` """
-    import argparse
+@cli
+def file_watch(extensions=[], exclude_patterns=[]):
+    """
+    :param extensions: Patterns of files to watch (by default inferred)
+    :param exclude_patterns: Patterns of files to ignore (by default inferred)
+    """
+    watch(extensions, exclude_patterns)
 
-    parser = argparse.ArgumentParser(description='sysdm')
 
-    subparsers = parser.add_subparsers(dest="command")
-    create = subparsers.add_parser('create')
-    create.add_argument(
-        '--systempath', default=None, help='Folder where to save the service file' + SYSTEMPATH_HELP
-    )
-    create.add_argument(
-        '--norestart', action='store_true', help='Whether to prevent auto restart on error'
-    )
-    create.add_argument('fname_or_cmd', help='File/cmd to run')
-    create.add_argument(
-        '--delay',
-        '-d',
-        default=0.2,
-        help='Set a delay in the unit file before attempting restart, default: %(default)s',
-    )
-    create.add_argument(
-        '--extensions', '-w', help='Patterns of files to watch (by default inferred)', nargs='+'
-    )
-    create.add_argument(
-        '--exclude_patterns', help='Patterns of files to ignore (by default inferred)', nargs='+'
-    )
-    create.add_argument('--nolist', action='store_true', help='Only create but do not list')
-    create.add_argument('--root', action='store_true', help='Only possible when using sudo')
-    create.add_argument(
-        '--notify_cmd',
-        default="-1",
-        help='Binary command that will notify. -1 will add no notifier. Possible: yagmail, default: %(default)s',
-    )
-    create.add_argument(
-        '--notify_status_cmd',
-        default="systemctl --user status -l -n 1000 %i",
-        help='Command that echoes output to the notifier on failure, default: %(default)s',
-    )
-    create.add_argument(
-        '--notify_cmd_args',
-        default='-s "%i failed on %H" -oauth2 {home}/oauth2.json',
-        help='Arguments passed to notify command. \n\nDefault: %(default)s. (default assumes OAuth2 gmail backend. See yagmail for details.)',
-    )
-    create.add_argument(
-        '--timer',
-        default='None',
-        help='Used to set timer. Checked to be valid. E.g. *-*-* 03:00:00 for daily at 3 am.',
-    )
-    view = subparsers.add_parser('view')
-    view.add_argument(
-        '--systempath',
-        default=None,
-        help='Folder where to look for service files' + SYSTEMPATH_HELP,
-    )
-    view.add_argument('unit', help='File/cmd/unit to observe')
-    show_unit = subparsers.add_parser('show_unit')
-    show_unit.add_argument(
-        '--systempath',
-        default=None,
-        help='Folder where to look for service files' + SYSTEMPATH_HELP,
-    )
-    show_unit.add_argument('unit', help='File/cmd/unit to show service')
-    watch = subparsers.add_parser('watch')
-    watch.add_argument(
-        'extensions', help='Patterns of files to watch (by default inferred)', nargs='?'
-    )
-    watch.add_argument(
-        '--exclude_patterns', help='Patterns of files to ignore (by default inferred)', nargs='+'
-    )
-    ls = subparsers.add_parser('ls')
-    ls.add_argument(
-        '--systempath',
-        default=None,
-        help='Folder where to look for service files' + SYSTEMPATH_HELP,
-    )
-    edit = subparsers.add_parser('edit')
-    edit.add_argument(
-        '--systempath',
-        default=None,
-        help='Folder where to look for service files' + SYSTEMPATH_HELP,
-    )
-    edit.add_argument('unit', nargs="?", help='File/cmd/unit to edit')
-    run = subparsers.add_parser('run')
-    run.add_argument(
-        '--systempath',
-        default=None,
-        help='Folder where to look for service files' + SYSTEMPATH_HELP,
-    )
-    run.add_argument('unit', nargs="?", help='File/cmd/unit to observe')
-    run.add_argument('--debug', "-d", action='store_true', help='Use debug on error if available')
-    delete = subparsers.add_parser('delete')
-    delete.add_argument(
-        '--systempath',
-        default=None,
-        help='Folder where to look for service files' + SYSTEMPATH_HELP,
-    )
-    delete.add_argument('unit', nargs="?", help='File/cmd/unit to observe')
-    return parser, parser.parse_args(args)
+@cli
+def reload():
+    systemctl("daemon-reload")
 
 
 def choose_unit(systempath, units):
@@ -160,104 +251,8 @@ def choose_unit(systempath, units):
     return units[index]
 
 
-def _main():
-    parser, args = get_argparser()
+if __name__ == "__main__":
     try:
-        if args.systempath is None:
-            args.systempath = "/etc/systemd/system" if IS_SUDO else "~/.config/systemd/user"
-        args.systempath = os.path.expanduser(args.systempath)
-        args.systempath = args.systempath.rstrip("/")
-        try:
-            os.makedirs(args.systempath)
-        except FileExistsError:
-            pass
-    except AttributeError:
-        # most commands have it, but not all
-        pass
-    if args.command == "create":
-        print("Creating systemd unit...")
-        service_name = install(args)
-        print("Done")
-        if not args.nolist:
-            monitor(service_name, args.systempath)
-    elif args.command == "view":
-        service_name = to_sn(args.unit)
-        if not os.path.exists(args.systempath + "/" + service_name + ".service"):
-            print(
-                "Service file does not exist. You can start by running:\n\n    sysdm create {}\n\nto create a service or run:\n\n    sysdm ls\n\nto see the services already created by sysdm.".format(
-                    args.unit
-                )
-            )
-            sys.exit(1)
-        monitor(service_name, args.systempath)
-    elif args.command == "run":
-        if args.unit is None:
-            units = ls(args)
-            unit = choose_unit(args.systempath, units)
-            if unit is None:
-                sys.exit()
-        else:
-            unit = args.unit
-        with open(args.systempath + "/" + unit + ".service") as f:
-            for line in f:
-                line = line.strip()
-                if line.startswith("ExecStart="):
-                    cmd = line.split("ExecStart=")[1]
-                    if args.debug:
-                        cmd = cmd.replace("python3 -u", "python3 -u -m pdb")
-                        cmd = cmd.replace("python -u", "python -u -m pdb")
-                elif line.startswith("WorkingDirectory="):
-                    cwd = line.split("WorkingDirectory=")[1]
-            os.system("cd {!r} && {}".format(cwd, cmd))
-    elif args.command == "show_unit":
-        show(args)
-    elif args.command == "reload":
-        systemctl("daemon-reload")
-    elif args.command == "watch":
-        watch(args)
-    elif args.command == "delete":
-        if args.unit is None:
-            units = ls(args)
-            unit = choose_unit(args.systempath, units)
-            if unit is None:
-                sys.exit()
-            inp = input("Are you sure you want to delete '{}'? [y/N]: ".format(unit))
-            if inp.lower().strip() != "y":
-                print("Aborting")
-                return
-        else:
-            unit = args.unit
-        delete(unit, args.systempath)
-    elif args.command == "edit":
-        if args.unit is None:
-            units = ls(args)
-            unit = choose_unit(args.systempath, units)
-            if unit is None:
-                sys.exit()
-        else:
-            unit = args.unit
-        unit = unit if unit.endswith(".service") else unit + ".service"
-        os.system("$EDITOR {}/{}".format(args.systempath, unit))
-    elif args.command == "ls":
-        while True:
-            units = ls(args)
-            if units:
-                unit = choose_unit(args.systempath, units)
-                if unit is None:
-                    sys.exit()
-                monitor(unit, args.systempath)
-            else:
-                print(
-                    "sysdm knows of no units. Why don't you make one? `sysdm create file_i_want_as_service.py`"
-                )
-                break
-    else:
-        parser.print_help(sys.stderr)
-        sys.exit(1)
-
-
-def main():
-    try:
-        _main()
+        main()
     except KeyboardInterrupt:
         print("Aborted")

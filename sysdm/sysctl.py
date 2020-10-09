@@ -15,13 +15,13 @@ from sysdm.utils import (
 USER_AND_GROUP = None
 
 
-def user_and_group_if_sudo(args):
+def user_and_group_if_sudo(root):
     global USER_AND_GROUP
     if USER_AND_GROUP is not None:
         return USER_AND_GROUP
     else:
         if IS_SUDO:
-            if args.root:
+            if root:
                 user = "root"
                 user_group = get_output(
                     """getent group | grep :0: | awk -F ":" '{ print $1}'"""
@@ -82,9 +82,9 @@ def get_exclusions_from_filename(fname):
     return cmd
 
 
-def create_service_template(args):
+def create_service_template(fname_or_cmd, notify_cmd, timer, delay, root, killaftertimeout):
     here = os.path.abspath(".")
-    fname, extra_args = args.fname_or_cmd.split()[0], " ".join(args.fname_or_cmd.split()[1:])
+    fname, extra_args = fname_or_cmd.split()[0], " ".join(fname_or_cmd.split()[1:])
     binary, cmd = get_cmd_from_filename(fname)
     service_name = fname + "_" + here.split("/")[-1] if binary else fname
     service_name = to_sn(service_name)
@@ -92,20 +92,21 @@ def create_service_template(args):
     # other binary
     if binary:
         fname = ""
-    if args.notify_cmd != "-1":
-        on_failure = "OnFailure={}-onfailure@%i.service".format(args.notify_cmd)
+    if notify_cmd != "-1":
+        on_failure = "OnFailure={}-onfailure@%i.service".format(notify_cmd)
     else:
         on_failure = ""
-    timer = run_quiet("systemd-analyze calendar '{}'".format(args.timer))
+    if timer is not None:
+        timer = run_quiet("systemd-analyze calendar '{}'".format(timer))
     if bool(timer):
         service_type = "oneshot"
         restart = ""
         part_of = ""
     else:
         service_type = "simple"
-        restart = "Restart=always\nRestartSec={delay}".format(delay=args.delay)
+        restart = "Restart=always\nRestartSec={delay}".format(delay=delay)
         part_of = "PartOf={service_name}_monitor.service".format(service_name=service_name)
-    user_and_group = user_and_group_if_sudo(args)
+    user_and_group = user_and_group_if_sudo(root)
     if timer:
         install = ""
     else:
@@ -124,6 +125,7 @@ def create_service_template(args):
     {user_and_group}
     Type={service_type}
     {restart}
+    TimeoutStopSec={killaftertimeout}
     ExecStart={cmd} {fname} {extra_args}
     WorkingDirectory={here}
 
@@ -143,6 +145,7 @@ def create_service_template(args):
             service_type=service_type,
             user_and_group=user_and_group,
             install=install,
+            killaftertimeout=killaftertimeout,
         )
         .strip()
     )
@@ -158,13 +161,15 @@ def timer_granularity(timer_str):
     return "1m"
 
 
-def create_timer_service(service_name, args):
-    timer = run_quiet("systemd-analyze calendar '{}'".format(args.timer))
+def create_timer_service(systempath, service_name, timer):
+    if timer is None:
+        return False
+    timer = run_quiet("systemd-analyze calendar '{}'".format(timer))
     if not bool(timer):
         print("Service type 'simple' (long running) since NOT using a timer.")
         return False
     next_run = timer.split("From now: ")[1].strip()
-    accuracy_sec = timer_granularity(args.timer)
+    accuracy_sec = timer_granularity(timer)
     print("Service type 'oneshot' since using a timer. Next run: {}".format(next_run))
     service = (
         """
@@ -182,24 +187,24 @@ def create_timer_service(service_name, args):
     """.replace(
             "\n    ", "\n"
         )
-        .format(timer=args.timer, service_name=service_name, accuracy_sec=accuracy_sec)
+        .format(timer=timer, service_name=service_name, accuracy_sec=accuracy_sec)
         .strip()
     )
-    with open(os.path.join(args.systempath, "{}.timer".format(service_name)), "w") as f:
+    with open(os.path.join(systempath, "{}.timer".format(service_name)), "w") as f:
         f.write(service)
     return True
 
 
-def create_service_monitor_template(service_name, args):
+def create_service_monitor_template(service_name, fname_or_cmd, extensions, exclude_patterns, root):
     cmd = get_sysdm_executable()
     here = os.path.abspath(".")
-    fname = args.fname_or_cmd.split()[0]
-    extensions = args.extensions or get_extensions_from_filename(fname)
-    extensions = " ".join(extensions)
-    exclude_patterns = args.exclude_patterns or get_exclusions_from_filename(fname)
+    fname = fname_or_cmd.split()[0]
+    extensions = extensions or get_extensions_from_filename(fname)
+    extensions = "--extensions " + " ".join(extensions) if extensions else ""
+    exclude_patterns = exclude_patterns or get_exclusions_from_filename(fname)
     exclude_patterns = " ".join(exclude_patterns)
     exclude_patterns = "--exclude_patterns " + exclude_patterns if exclude_patterns else ""
-    user_and_group = user_and_group_if_sudo(args)
+    user_and_group = user_and_group_if_sudo(root)
     wanted_by = "multi-user.target" if user_and_group.strip() else "default.target"
     service = (
         """
@@ -213,7 +218,7 @@ def create_service_monitor_template(service_name, args):
     Restart=always
     RestartSec=0
     Environment="PYTHONUNBUFFERED=on"
-    ExecStart={cmd} watch {extensions} {exclude_patterns}
+    ExecStart={cmd} file_watch {extensions} {exclude_patterns}
     WorkingDirectory={here}
 
     [Install]
@@ -235,26 +240,28 @@ def create_service_monitor_template(service_name, args):
     return service
 
 
-def create_mail_on_failure_service(args):
-    if args.notify_cmd == "-1":
+def create_mail_on_failure_service(
+    systempath, notify_cmd, notify_cmd_args, notify_status_cmd, root
+):
+    if notify_cmd == "-1":
         return
-    notifier = get_output("which " + args.notify_cmd)
+    notifier = get_output("which " + notify_cmd)
     user = get_output("echo $USER")
     home = get_output("echo ~" + user)
     host = get_output("echo $HOSTNAME")
-    notify_cmd_args = args.notify_cmd_args.format(home=home, host=host)
+    notify_cmd_args = notify_cmd_args.format(home=home, host=host)
     exec_start = """/bin/bash -c '{notify_status_cmd} | {notifier} {notify_cmd_args}' """.format(
-        notify_status_cmd=args.notify_status_cmd, notifier=notifier, notify_cmd_args=notify_cmd_args
+        notify_status_cmd=notify_status_cmd, notifier=notifier, notify_cmd_args=notify_cmd_args
     )
-    print("Testing notifier ({})".format(args.notify_cmd))
+    print("Testing notifier ({})".format(notify_cmd))
     test_args = (
-        args.notify_cmd_args.replace("%i", args.notify_cmd)
+        notify_cmd_args.replace("%i", notify_cmd)
         .replace("failed", "test succeeded")
         .replace("%H", host)
         .format(home=home, host=host)
     )
     test_cmd = """/bin/bash -c '{notify_status_cmd} | {notifier} {notify_cmd_args}' """.format(
-        notify_status_cmd=args.notify_status_cmd.replace("%i", ""),
+        notify_status_cmd=notify_status_cmd.replace("%i", ""),
         notifier=notifier,
         notify_cmd_args=test_args,
     )
@@ -273,47 +280,18 @@ def create_mail_on_failure_service(args):
         "\n    ", "\n"
     ).format(
         exec_start=exec_start,
-        notify_cmd=args.notify_cmd,
-        user_and_group=user_and_group_if_sudo(args),
+        notify_cmd=notify_cmd,
+        user_and_group=user_and_group_if_sudo(root),
     )
-    with open(
-        os.path.join(args.systempath, "{}-onfailure@.service".format(args.notify_cmd)), "w"
-    ) as f:
+    with open(os.path.join(systempath, "{}-onfailure@.service".format(notify_cmd)), "w") as f:
         f.write(service)
 
 
-def install(args):
-    service_name, service = create_service_template(args)
-    try:
-        with open(os.path.join(args.systempath, service_name) + ".service", "w") as f:
-            print(service)
-            f.write(service)
-    except PermissionError:
-        print("Need sudo to create systemd unit service file.")
-        sys.exit(1)
-    create_mail_on_failure_service(args)
-    _ = systemctl("daemon-reload")
-    create_timer = create_timer_service(service_name, args)
-    if create_timer:
-        _ = systemctl("enable {}.timer".format(service_name))
-        _ = systemctl("start {}.timer".format(service_name))
-    else:
-        _ = systemctl("enable {}".format(service_name))
-        monitor = create_service_monitor_template(service_name, args)
-        with open(os.path.join(args.systempath, service_name) + "_monitor.service", "w") as f:
-            f.write(monitor)
-        _ = systemctl("start --no-block {}".format(service_name))
-        _ = systemctl("enable {}_monitor".format(service_name))
-        _ = systemctl("start {}_monitor".format(service_name))
-    print(linger())
-    return service_name
-
-
-def show(args):
-    service_name = args.unit
-    service_file = os.path.join(args.systempath, service_name) + ".service"
-    service_monitor_file = os.path.join(args.systempath, service_name) + "_monitor.service"
-    service_timer_file = os.path.join(args.systempath, service_name) + ".timer"
+def show(systempath, unit):
+    service_name = unit
+    service_file = os.path.join(systempath, service_name) + ".service"
+    service_monitor_file = os.path.join(systempath, service_name) + "_monitor.service"
+    service_timer_file = os.path.join(systempath, service_name) + ".timer"
     print("--- CONTENTS FOR {} ---".format(service_file))
     with open(service_file, "r") as f:
         print(f.read())
@@ -331,12 +309,12 @@ def show(args):
         pass
 
 
-def ls(args):
+def ls(systempath):
     units = []
-    for fname in sorted(os.listdir(args.systempath)):
+    for fname in sorted(os.listdir(systempath)):
         if "_monitor.s" in fname or fname.endswith(".timer"):
             continue
-        fpath = args.systempath + "/" + fname
+        fpath = systempath + "/" + fname
         if os.path.isdir(fpath):
             continue
         with open(fpath) as f:

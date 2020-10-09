@@ -5,9 +5,9 @@ import inotify.adapters
 from sysdm.utils import is_git_ignored
 
 
-def watch(args):
+def watch(extensions, exclude_patterns):
     current_dir = os.path.abspath(".")
-    if not args.extensions:
+    if not extensions:
         print("WARNING: Not watching '{}' for changes (nothing to follow)".format(current_dir))
         return
     i = inotify.adapters.Inotify()
@@ -15,12 +15,12 @@ def watch(args):
     # i.add_watch(current_dir, mask=inotify.constants.IN_MODIFY)
     i.add_watch(current_dir, mask=inotify.constants.IN_CLOSE_WRITE)
 
-    extensions = [args.extensions] if isinstance(args.extensions, str) else args.extensions
+    extensions = [extensions] if isinstance(extensions, str) else extensions
 
     print("Watching directory '{}' for changes in '{}'".format(current_dir, extensions))
     for event in i.event_gen(yield_nones=False):
         (_, _, path, filename) = event
-        if any([x in filename for x in args.exclude_patterns]):
+        if any([x in filename for x in exclude_patterns]):
             continue
         if os.path.exists(".git") and is_git_ignored(os.path.join(path, filename)):
             print("File '{}' changed but ignored by gitignore".format(filename))
