@@ -59,6 +59,8 @@ class Sysdm:
         notify_cmd_args='-s "%i failed on %H"',
     ):
         """
+        Create a systemd unit file
+
         :param fname_or_cmd: File/cmd to run
         :param restart: Whether to prevent auto restart on error
         :param timer: Used to set timer. Checked to be valid. E.g. *-*-* 03:00:00 for daily at 3 am.
@@ -109,6 +111,8 @@ class Sysdm:
     @cli
     def view(self, unit: str):
         """
+        Monitor a unit
+
         :param unit: File/cmd/unit to observe. Dots will be replaced with _ automatically
         """
         service_name = to_sn(unit)
@@ -124,6 +128,8 @@ class Sysdm:
     @cli
     def show_unit(self, unit: str = None):
         """
+        Print out the definition of unit files for a unit
+
         :param unit: File/cmd/unit to print unit file. Dots will be replaced with _ automatically
         """
         if unit is None:
@@ -152,6 +158,8 @@ class Sysdm:
     @cli
     def edit(self, unit: str = None):
         """
+        Opens a unit service file for editing
+
         :param unit: File/cmd/unit to edit. When omitted, show choices.
         """
         if unit is None:
@@ -165,6 +173,8 @@ class Sysdm:
     @cli
     def run(self, unit: str = None, debug=False):
         """
+        Run the command of a unit once
+
         :param unit: File/cmd/unit to run.
         :param debug: Use debug on error if available
         """
@@ -187,7 +197,11 @@ class Sysdm:
 
     @cli
     def delete(self, unit: str = None):
-        ":param unit: File/cmd/unit to delete. When omitted, show choices."
+        """
+        Delete a unit
+
+        :param unit: File/cmd/unit to delete. When omitted, show choices.
+        """
         if unit is None:
             units = ls(self.systempath)
             unit = choose_unit(self.systempath, units)
@@ -203,6 +217,8 @@ class Sysdm:
 @cli
 def file_watch(extensions=[], exclude_patterns=[]):
     """
+    Internal use.
+
     :param extensions: Patterns of files to watch (by default inferred)
     :param exclude_patterns: Patterns of files to ignore (by default inferred)
     """
@@ -211,6 +227,9 @@ def file_watch(extensions=[], exclude_patterns=[]):
 
 @cli
 def reload():
+    """
+    Do a daemon-reload for systemd
+    """
     systemctl("daemon-reload")
 
 
