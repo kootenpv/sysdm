@@ -3,7 +3,7 @@ from setuptools import setup
 
 MAJOR_VERSION = "0"
 MINOR_VERSION = "8"
-MICRO_VERSION = "50"
+MICRO_VERSION = "51"
 VERSION = "{}.{}.{}".format(MAJOR_VERSION, MINOR_VERSION, MICRO_VERSION)
 
 with open("README.md") as f:
@@ -12,7 +12,7 @@ with open("README.md") as f:
 setup(
     name='sysdm',
     version=VERSION,
-    description="Scripts as a service. Builds on systemctl.",
+    description="Scripts as a service. Builds on systemd.",
     url='https://github.com/kootenpv/sysdm',
     author='Pascal van Kooten',
     author_email='kootenpv@gmail.com',

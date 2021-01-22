@@ -38,11 +38,19 @@ def user_and_group_if_sudo(root):
     return output
 
 
+def contains_python(fname):
+    fname_cmd = get_output("which " + fname)
+    if os.path.exists(fname_cmd):
+        with open(fname_cmd) as f:
+            return "python" in f.read()
+    return False
+
+
 def get_cmd_from_filename(fname):
     cmd = None
     binary = False
     if fname.endswith(".py"):
-        cmd = (get_output("which python3") or get_output("which python")) + " -u"
+        cmd = get_output("which python3") or get_output("which python")
     elif fname.endswith(".sh"):
         cmd = get_output("which bash")
     elif fname.endswith(".js"):
@@ -68,6 +76,8 @@ def get_extensions_from_filename(fname):
         cmd = ["." + fname.split(".")[-1]]
     elif os.path.isfile(fname):
         cmd = [fname]
+    elif contains_python(fname):
+        cmd = [".py"]
     return cmd
 
 
@@ -128,6 +138,7 @@ def create_service_template(fname_or_cmd, notify_cmd, timer, delay, root, killaf
     TimeoutStopSec={killaftertimeout}
     ExecStart={cmd} {fname} {extra_args}
     WorkingDirectory={here}
+    Environment=PYTHONUNBUFFERED=1
 
     {install}
     """.replace(
@@ -164,12 +175,12 @@ def timer_granularity(timer_str):
 def create_timer_service(systempath, service_name, timer):
     if timer is None:
         return False
-    timer = run_quiet("systemd-analyze calendar '{}'".format(timer))
-    if not bool(timer):
+    timer_output = run_quiet("systemd-analyze calendar '{}'".format(timer))
+    if not bool(timer_output):
         print("Service type 'simple' (long running) since NOT using a timer.")
         return False
     next_run = timer.split("From now: ")[1].strip()
-    accuracy_sec = timer_granularity(timer)
+    accuracy_sec = timer_granularity(timer_output)
     print("Service type 'oneshot' since using a timer. Next run: {}".format(next_run))
     service = (
         """
