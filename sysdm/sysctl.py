@@ -179,7 +179,7 @@ def create_timer_service(systempath, service_name, timer):
     if not bool(timer_output):
         print("Service type 'simple' (long running) since NOT using a timer.")
         return False
-    next_run = timer.split("From now: ")[1].strip()
+    next_run = timer_output.split("From now: ")[1].strip()
     accuracy_sec = timer_granularity(timer_output)
     print("Service type 'oneshot' since using a timer. Next run: {}".format(next_run))
     service = (
