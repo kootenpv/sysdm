@@ -61,7 +61,7 @@ class Sysdm:
         n_to: Optional[Union[str, int]] = None,
         n_pw: Optional[str] = None,
         n_msg: Optional[str] = "%i failed on %H",
-        n_status_cmd="journalctl {user} --no-pager -n 1000 -u %i",
+        n_status_cmd="journalctl {user} --no-pager -n 1000",
     ):
         """
         Create a systemd unit file
@@ -85,7 +85,7 @@ class Sysdm:
         service_name, service = create_service_template(
             fname_or_cmd, n_notifier, timer, delay, root, killaftertimeout, restart
         )
-        user = "" if "User=" in service else "--user"
+        user = "--user-unit %i" if IS_SUDO else "--user -u %i"
         n_status_cmd = n_status_cmd.format(user=user)
         try:
             with open(os.path.join(self.systempath, service_name) + ".service", "w") as f:
