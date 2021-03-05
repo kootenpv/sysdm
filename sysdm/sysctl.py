@@ -260,7 +260,7 @@ def create_notification_on_failure_service(
 ):
     if n_notifier is None:
         return
-    notify = "/".join(sys.executable.split("/")[:-1]) + "/sysdm notify"
+    notify = get_sysdm_executable()
     user = get_output("echo $USER")
     home = get_output("echo ~" + user)
     host = get_output("echo $HOSTNAME")
