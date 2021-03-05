@@ -6,7 +6,7 @@ from sysdm.sysctl import (
     ls,
     delete,
     create_service_template,
-    create_mail_on_failure_service,
+    create_notification_on_failure_service,
     create_timer_service,
     create_service_monitor_template,
     linger,
@@ -24,6 +24,8 @@ from sysdm.utils import (
 )
 from cliche import cli, main
 from sysdm.runner import monitor
+from sysdm.notify import notify, install_notifier_dependencies
+from typing import Optional, Union
 
 
 class Sysdm:
@@ -54,9 +56,12 @@ class Sysdm:
         exclude_patterns=[],
         ls=True,
         root=False,
-        notify_cmd="-1",
-        notify_status_cmd="systemctl --user status -l -n 1000 %i",
-        notify_cmd_args='-s "%i failed on %H"',
+        n_notifier: Optional[str] = None,
+        n_user: Optional[str] = None,
+        n_to: Optional[Union[str, int]] = None,
+        n_pw: Optional[str] = None,
+        n_msg: Optional[str] = "%i failed on %H",
+        n_status_cmd="journalctl {user} --no-pager -n 1000 -u %i",
     ):
         """
         Create a systemd unit file
@@ -74,10 +79,14 @@ class Sysdm:
         :param notify_status_cmd: Command that echoes output to the notifier on failure
         :param notify_cmd_args: Arguments passed to notify command.
         """
+        if n_notifier is not None:
+            install_notifier_dependencies(n_notifier)
         print("Creating systemd unit...")
         service_name, service = create_service_template(
-            fname_or_cmd, notify_cmd, timer, delay, root, killaftertimeout
+            fname_or_cmd, n_notifier, timer, delay, root, killaftertimeout, restart
         )
+        user = "" if "User=" in service else "--user"
+        n_status_cmd = n_status_cmd.format(user=user)
         try:
             with open(os.path.join(self.systempath, service_name) + ".service", "w") as f:
                 print(service)
@@ -85,8 +94,8 @@ class Sysdm:
         except PermissionError:
             print("Need sudo to create systemd unit service file.")
             sys.exit(1)
-        create_mail_on_failure_service(
-            self.systempath, notify_cmd, notify_status_cmd, notify_status_cmd, root
+        create_notification_on_failure_service(
+            self.systempath, service_name, n_notifier, n_user, n_to, n_pw, n_msg, n_status_cmd, root
         )
         _ = systemctl("daemon-reload")
         create_timer = create_timer_service(self.systempath, service_name, timer)
@@ -258,7 +267,7 @@ def choose_unit(systempath, units):
     default_index = 0
     while True:
         p = Picker(formatted_options, title, default_index=default_index)
-        p.register_custom_handler(ord('q'), lambda _: sys.exit(0))
+        p.register_custom_handler(ord("q"), lambda _: sys.exit(0))
         chosen, index = p.start()
         if chosen == quit:
             return None

@@ -92,18 +92,19 @@ def get_exclusions_from_filename(fname):
     return cmd
 
 
-def create_service_template(fname_or_cmd, notify_cmd, timer, delay, root, killaftertimeout):
+def create_service_template(fname_or_cmd, notifier, timer, delay, root, killaftertimeout, restart):
     here = os.path.abspath(".")
     fname, extra_args = fname_or_cmd.split()[0], " ".join(fname_or_cmd.split()[1:])
     binary, cmd = get_cmd_from_filename(fname)
     service_name = fname + "_" + here.split("/")[-1] if binary else fname
     service_name = to_sn(service_name)
     fname = fname + " "
+    start_info = ""
     # other binary
     if binary:
         fname = ""
-    if notify_cmd != "-1":
-        on_failure = "OnFailure={}-onfailure@%i.service".format(notify_cmd)
+    if notifier is not None:
+        on_failure = "OnFailure={}-onfailure@%i.service".format(notifier)
     else:
         on_failure = ""
     if timer is not None:
@@ -114,7 +115,8 @@ def create_service_template(fname_or_cmd, notify_cmd, timer, delay, root, killaf
         part_of = ""
     else:
         service_type = "simple"
-        restart = "Restart=always\nRestartSec={delay}".format(delay=delay)
+        start_info = "StartLimitBurst=2\nStartLimitIntervalSec=15s" if restart else ""
+        restart = "Restart=always\nRestartSec={delay}".format(delay=delay) if restart else ""
         part_of = "PartOf={service_name}_monitor.service".format(service_name=service_name)
     user_and_group = user_and_group_if_sudo(root)
     if timer:
@@ -130,6 +132,7 @@ def create_service_template(fname_or_cmd, notify_cmd, timer, delay, root, killaf
     After=network-online.target
     {part_of}
     {on_failure}
+    {start_info}
 
     [Service]
     {user_and_group}
@@ -153,6 +156,7 @@ def create_service_template(fname_or_cmd, notify_cmd, timer, delay, root, killaf
             restart=restart,
             part_of=part_of,
             on_failure=on_failure,
+            start_info=start_info,
             service_type=service_type,
             user_and_group=user_and_group,
             install=install,
@@ -251,32 +255,34 @@ def create_service_monitor_template(service_name, fname_or_cmd, extensions, excl
     return service
 
 
-def create_mail_on_failure_service(
-    systempath, notify_cmd, notify_cmd_args, notify_status_cmd, root
+def create_notification_on_failure_service(
+    systempath, service_name, n_notifier, n_user, n_to, n_pw, n_msg, n_status_cmd, root
 ):
-    if notify_cmd == "-1":
+    if n_notifier is None:
         return
-    notifier = get_output("which " + notify_cmd)
+    notify = "/".join(sys.executable.split("/")[:-1]) + "/sysdm notify"
     user = get_output("echo $USER")
     home = get_output("echo ~" + user)
     host = get_output("echo $HOSTNAME")
-    notify_cmd_args = notify_cmd_args.format(home=home, host=host)
-    exec_start = """/bin/bash -c '{notify_status_cmd} | {notifier} {notify_cmd_args}' """.format(
-        notify_status_cmd=notify_status_cmd, notifier=notifier, notify_cmd_args=notify_cmd_args
-    )
-    print("Testing notifier ({})".format(notify_cmd))
-    test_args = (
-        notify_cmd_args.replace("%i", notify_cmd)
-        .replace("failed", "test succeeded")
+    n_msg = n_msg.format(home=home, host=host)
+    exec_start = f"""/bin/bash -c "{n_status_cmd} | {notify} {n_notifier} -m {n_msg!r}"""
+    if n_user is not None:
+        exec_start += f" -u {n_user!r}"
+    if n_to is not None:
+        exec_start += f" -t {n_to!r}"
+    if n_pw is not None:
+        exec_start += f" -p {n_pw!r}"
+    exec_start += '"'
+    print("Testing notifier ({})".format(n_notifier))
+    test_cmd = (
+        exec_start.replace("%i", service_name)
         .replace("%H", host)
-        .format(home=home, host=host)
+        .replace("failed on", "test succeeded on")
     )
-    test_cmd = """/bin/bash -c '{notify_status_cmd} | {notifier} {notify_cmd_args}' """.format(
-        notify_status_cmd=notify_status_cmd.replace("%i", ""),
-        notifier=notifier,
-        notify_cmd_args=test_args,
-    )
-    print(get_output(test_cmd))
+    outp = get_output(test_cmd)
+    if "Fault" in outp:
+        print(outp)
+        sys.exit(1)
     print("")
     print("Test succeeded.")
     service = """
@@ -291,10 +297,10 @@ def create_mail_on_failure_service(
         "\n    ", "\n"
     ).format(
         exec_start=exec_start,
-        notify_cmd=notify_cmd,
+        notify_cmd=n_notifier,
         user_and_group=user_and_group_if_sudo(root),
     )
-    with open(os.path.join(systempath, "{}-onfailure@.service".format(notify_cmd)), "w") as f:
+    with open(os.path.join(systempath, "{}-onfailure@.service".format(n_notifier)), "w") as f:
         f.write(service)
 
 
