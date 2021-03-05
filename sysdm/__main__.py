@@ -85,7 +85,7 @@ class Sysdm:
         service_name, service = create_service_template(
             fname_or_cmd, n_notifier, timer, delay, root, killaftertimeout, restart
         )
-        user = "--user-unit %i" if IS_SUDO else "--user -u %i"
+        user = "-u %i" if IS_SUDO else "--user-unit %i"
         n_status_cmd = n_status_cmd.format(user=user)
         try:
             with open(os.path.join(self.systempath, service_name) + ".service", "w") as f:
