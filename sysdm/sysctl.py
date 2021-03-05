@@ -260,7 +260,7 @@ def create_notification_on_failure_service(
 ):
     if n_notifier is None:
         return
-    notify = get_sysdm_executable()
+    notify = get_sysdm_executable() + " notify"
     user = get_output("echo $USER")
     home = get_output("echo ~" + user)
     host = get_output("echo $HOSTNAME")
@@ -279,8 +279,9 @@ def create_notification_on_failure_service(
         .replace("%H", host)
         .replace("failed on", "test succeeded on")
     )
+    print(test_cmd)
     outp = get_output(test_cmd)
-    if "Fault" in outp:
+    if "Fault" in outp or "invalid" in outp:
         print(outp)
         sys.exit(1)
     print("")
