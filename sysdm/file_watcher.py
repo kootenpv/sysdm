@@ -17,6 +17,8 @@ def watch(extensions, exclude_patterns):
 
     extensions = [extensions] if isinstance(extensions, str) else extensions
 
+    exclude_patterns.append("flycheck")
+
     print("Watching directory '{}' for changes in '{}'".format(current_dir, extensions))
     for event in i.event_gen(yield_nones=False):
         (_, _, path, filename) = event
@@ -26,15 +28,6 @@ def watch(extensions, exclude_patterns):
             print("File '{}' changed but ignored by gitignore".format(filename))
             continue
         # :-7 is for rsync using a postfix for the file (e.g. '.ss.py.vFiJcy')
-        if any(
-            [
-                filename.endswith(x) or (filename.startswith(".") and filename[:-7].endswith(x))
-                for x in extensions
-            ]
-        ):
-            print(
-                "File '{filename}' changed in '{path}', restarting service".format(
-                    filename=filename, path=path
-                )
-            )
+        if any([filename.endswith(x) or (filename.startswith(".") and filename[:-7].endswith(x)) for x in extensions]):
+            print("File '{filename}' changed in '{path}', restarting service".format(filename=filename, path=path))
             sys.exit(0)

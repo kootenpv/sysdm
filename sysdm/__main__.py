@@ -62,6 +62,7 @@ class Sysdm:
         n_pw: Optional[str] = None,
         n_msg: Optional[str] = "%i failed on %H",
         n_status_cmd="journalctl {user} --no-pager -n 1000",
+        workdir: str = "",
     ):
         """
         Create a systemd unit file
@@ -78,12 +79,13 @@ class Sysdm:
         :param notify_cmd: Binary command that will notify. -1 will add no notifier. Possible: e.g. yagmail
         :param notify_status_cmd: Command that echoes output to the notifier on failure
         :param notify_cmd_args: Arguments passed to notify command.
+        :param workdir: Location from which command is run
         """
         if n_notifier is not None:
             install_notifier_dependencies(n_notifier)
         print("Creating systemd unit...")
         service_name, service = create_service_template(
-            fname_or_cmd, n_notifier, timer, delay, root, killaftertimeout, restart
+            fname_or_cmd, n_notifier, timer, delay, root, killaftertimeout, restart, workdir
         )
         user = "-u %i" if IS_SUDO else "--user-unit %i"
         n_status_cmd = n_status_cmd.format(user=user)
@@ -150,7 +152,7 @@ class Sysdm:
 
     @cli
     def ls(self):
-        """ Interactively show units and allow viewing them """
+        """Interactively show units and allow viewing them"""
         while True:
             units = ls(self.systempath)
             if units:
@@ -159,9 +161,7 @@ class Sysdm:
                     sys.exit()
                 monitor(unit, self.systempath)
             else:
-                print(
-                    "sysdm knows of no units. Why don't you make one? `sysdm create file_i_want_as_service.py`"
-                )
+                print("sysdm knows of no units. Why don't you make one? `sysdm create file_i_want_as_service.py`")
                 break
 
     @cli

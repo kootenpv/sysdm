@@ -1,3 +1,4 @@
+import re
 import os
 import sys
 from sysdm.utils import (
@@ -23,14 +24,10 @@ def user_and_group_if_sudo(root):
         if IS_SUDO:
             if root:
                 user = "root"
-                user_group = get_output(
-                    """getent group | grep :0: | awk -F ":" '{ print $1}'"""
-                ).split("\n")[0]
+                user_group = get_output("""getent group | grep :0: | awk -F ":" '{ print $1}'""").split("\n")[0]
             else:
                 user = get_output("echo $SUDO_USER")
-                user_group = get_output(
-                    """getent group | grep $SUDO_GID: | awk -F ":" '{ print $1}'"""
-                ).split("\n")[0]
+                user_group = get_output("""getent group | grep $SUDO_GID: | awk -F ":" '{ print $1}'""").split("\n")[0]
             output = "User={user}\nGroup={user_group}".format(user=user, user_group=user_group)
         else:
             output = ""
@@ -92,11 +89,19 @@ def get_exclusions_from_filename(fname):
     return cmd
 
 
-def create_service_template(fname_or_cmd, notifier, timer, delay, root, killaftertimeout, restart):
-    here = os.path.abspath(".")
+def get_service_name(fname_or_cmd):
+    items = fname_or_cmd.split()
+    name = items[0]
+    if len(items) > 1 and re.search("[a-z]", items[1]):
+        name += "_" + items[1]
+    return name
+
+
+def create_service_template(fname_or_cmd, notifier, timer, delay, root, killaftertimeout, restart, workdir: str = ""):
+    here = workdir or os.path.abspath(".")
     fname, extra_args = fname_or_cmd.split()[0], " ".join(fname_or_cmd.split()[1:])
     binary, cmd = get_cmd_from_filename(fname)
-    service_name = fname + "_" + here.split("/")[-1] if binary else fname
+    service_name = get_service_name(fname_or_cmd) + "_" + here.split("/")[-1] if binary else fname
     service_name = to_sn(service_name)
     fname = fname + " "
     start_info = ""
@@ -274,11 +279,7 @@ def create_notification_on_failure_service(
         exec_start += f" -p {n_pw!r}"
     exec_start += '"'
     print("Testing notifier ({})".format(n_notifier))
-    test_cmd = (
-        exec_start.replace("%i", service_name)
-        .replace("%H", host)
-        .replace("failed on", "test succeeded on")
-    )
+    test_cmd = exec_start.replace("%i", service_name).replace("%H", host).replace("failed on", "test succeeded on")
     print(test_cmd)
     outp = get_output(test_cmd)
     if "Fault" in outp or "invalid" in outp:
