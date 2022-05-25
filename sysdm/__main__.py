@@ -177,7 +177,7 @@ class Sysdm:
             if unit is None:
                 sys.exit()
         unit = unit if unit.endswith(".service") else unit + ".service"
-        os.system("${EDITOR=vim} {}/{}".format(self.systempath, unit))
+        os.system("${{EDITOR=vim}} {}/{}".format(self.systempath, unit))
 
     @cli
     def run(self, unit: str = None, debug=False):
