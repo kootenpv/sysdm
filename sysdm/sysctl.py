@@ -43,11 +43,20 @@ def contains_python(fname):
     return False
 
 
+def get_version_tuple(py):
+    out = get_output(f"{py} --version")
+    if out.startswith("Python"):
+        return tuple(int(x) for x in out.split()[-1].split("."))
+    return (0, 0, 0)
+
+
 def get_cmd_from_filename(fname):
     cmd = None
     binary = False
     if fname.endswith(".py"):
-        cmd = get_output("which python3") or get_output("which python")
+        cmd3, cmd = get_output("which python3"), get_output("which python")
+        if get_version_tuple(cmd3) > get_version_tuple(cmd):
+            cmd = cmd3
     elif fname.endswith(".sh"):
         cmd = get_output("which bash")
     elif fname.endswith(".js"):
