@@ -52,18 +52,19 @@ def monitor(unit, systempath):
                 print(t.move(0, 0))
                 y, x = t.get_location()
                 if resized:
-                    print(t.clear())
                     resized = []
                     timed = is_unit_running(unit + ".timer")
                     is_running = is_unit_running(unit) or timed
                     is_enabled = is_unit_enabled(unit)
                     if timed:
-                        timer_text = ""
-                        while not timer_text:
-                            status = systemctl("list-timers " + unit + ".timer")
-                            timer_text = status.split("\n")[1][4 : status.index("LEFT") - 2]
-                        status = "Next: " + t.green(timer_text)
-                        timer = datetime.strptime(timer_text[:19], "%Y-%m-%d %H:%M:%S")
+                        status = systemctl("list-timers " + unit + ".timer")
+                        timer_text = status.split("\n")[1][4 : status.index("LEFT") - 2]
+                        if "LEFT" in status and timer_text:
+                            print(t.clear())
+                            timer = datetime.strptime(timer_text[:19], "%Y-%m-%d %H:%M:%S")
+                            status = "Next: " + t.green(timer_text)
+                        else:
+                            status = t.yellow("......... Running ...........")
                     else:
                         status = "Active: " + (t.green("✓") if is_running else t.red("✗"))
                     with t.location(OFFSET, 0):
@@ -99,9 +100,7 @@ def monitor(unit, systempath):
                         ps_aux = get_output("ps ax -o pid,%cpu,%mem,ppid,args -ww")
                         ps_info = read_ps_aux_by_unit(systempath, unit, ps_aux)
                         if ps_info is not None:
-                            res = "| {} | PID={} | CPU {:>4}% | MEM {:>4}%".format(
-                                time.asctime(), *ps_info
-                            )
+                            res = "| {} | PID={} | CPU {:>4}% | MEM {:>4}%".format(time.asctime(), *ps_info)
                     with t.location(x_banner_offset, 0):
                         print(res)
 
@@ -110,11 +109,10 @@ def monitor(unit, systempath):
                     w = t.width
                     g = "--grep " + grep if grep else ""
                     u_sep = "-u" if IS_SUDO else "--user-unit"
-                    output = journalctl(
-                        "journalctl {u_sep} {u} {u_sep} {u}_monitor {u_sep} {u}.timer -n {n} --no-pager {g}".format(
-                            u=unit, n=n + log_offset + 100, g=g, u_sep=u_sep
-                        )
+                    cmd = "journalctl {u_sep} {u} {u_sep} {u}_monitor {u_sep} {u}.timer -n {n} --no-pager {g}".format(
+                        u=unit, n=n + log_offset + 100, g=g, u_sep=u_sep
                     )
+                    output = journalctl(cmd)
                     outp = []
                     for line in output.split("\n"):
                         # replace e.g. python[pidnum123]: real output
@@ -194,9 +192,7 @@ def monitor(unit, systempath):
                     if grep:
                         grep = ""
                     else:
-                        grep = input(
-                            "Grep pattern to search for (leave blank for cancel): "
-                        ).strip()
+                        grep = input("Grep pattern to search for (leave blank for cancel): ").strip()
                     resized = [True]
                 elif inp.name == "KEY_RIGHT":
                     print(t.erase())
