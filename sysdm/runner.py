@@ -1,3 +1,4 @@
+import os
 import re
 import sys
 import time
@@ -24,7 +25,7 @@ def monitor(unit, systempath):
 
     mapping = [
         "[R] Restart service                                                   ",
-        "[S] Stop service                                                      ",
+        "[S] Stop service                 [j] Journal                           ",
         "[T] Enable on startup           [b] Back                              ",
         "[g] Grep (filter) a pattern      [q] Quit view                        ",
     ]
@@ -173,6 +174,9 @@ def monitor(unit, systempath):
                     resized = [True]
                 elif inp == "b" or inp.name == "KEY_DELETE":
                     return
+                elif inp == "j":
+                    cmd = "journalctl {u_sep} {u} {g}".format(u=unit, g=g, u_sep=u_sep)
+                    os.system(cmd)
                 elif inp == "T":
                     print(t.clear())
                     if is_enabled:

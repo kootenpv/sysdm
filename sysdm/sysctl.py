@@ -106,7 +106,7 @@ def get_service_name(fname_or_cmd):
     return name
 
 
-def create_service_template(fname_or_cmd, notifier, timer, delay, root, killaftertimeout, restart, workdir: str = ""):
+def create_service_template(fname_or_cmd, notifier, timer, delay, root, killaftertimeout, restart, workdir: str = "", env_vars = []):
     here = workdir or os.path.abspath(".")
     fname, extra_args = fname_or_cmd.split()[0], " ".join(fname_or_cmd.split()[1:])
     binary, cmd = get_cmd_from_filename(fname)
@@ -139,6 +139,7 @@ def create_service_template(fname_or_cmd, notifier, timer, delay, root, killafte
         wanted_by = "multi-user.target" if user_and_group.strip() else "default.target"
         wanted_by += " " + service_name + "_monitor.service"
         install = "[Install]\nWantedBy={wanted_by}".format(wanted_by=wanted_by)
+    env_var_section = "\n".join([f'Environment={x if "=" in x else x + "=" + os.environ[x]}' for x in env_vars])
     service = (
         """
     [Unit]
@@ -156,25 +157,14 @@ def create_service_template(fname_or_cmd, notifier, timer, delay, root, killafte
     ExecStart={cmd} {fname} {extra_args}
     WorkingDirectory={here}
     Environment=PYTHONUNBUFFERED=1
+    {env_var_section}
 
     {install}
     """.replace(
             "\n    ", "\n"
         )
         .format(
-            service_name=service_name,
-            cmd=cmd,
-            fname=fname,
-            extra_args=extra_args,
-            here=here,
-            restart=restart,
-            part_of=part_of,
-            on_failure=on_failure,
-            start_info=start_info,
-            service_type=service_type,
-            user_and_group=user_and_group,
-            install=install,
-            killaftertimeout=killaftertimeout,
+            **locals()
         )
         .strip()
     )

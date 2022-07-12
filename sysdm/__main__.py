@@ -63,6 +63,7 @@ class Sysdm:
         n_msg: Optional[str] = "%i failed on %H",
         n_status_cmd="journalctl {user} --no-pager -n 1000",
         workdir: str = "",
+        env_vars: list[str] = []
     ):
         """
         Create a systemd unit file
@@ -80,12 +81,13 @@ class Sysdm:
         :param notify_status_cmd: Command that echoes output to the notifier on failure
         :param notify_cmd_args: Arguments passed to notify command.
         :param workdir: Location from which command is run
+        :param env_vars: can be passed like FOO=1 or FOO (which would inherit FOO current shell)
         """
         if n_notifier is not None:
             install_notifier_dependencies(n_notifier)
         print("Creating systemd unit...")
         service_name, service = create_service_template(
-            fname_or_cmd, n_notifier, timer, delay, root, killaftertimeout, restart, workdir
+            fname_or_cmd, n_notifier, timer, delay, root, killaftertimeout, restart, workdir, env_vars
         )
         user = "-u %i" if IS_SUDO else "--user-unit %i"
         n_status_cmd = n_status_cmd.format(user=user)
