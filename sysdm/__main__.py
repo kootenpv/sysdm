@@ -10,6 +10,7 @@ from sysdm.sysctl import (
     create_timer_service,
     create_service_monitor_template,
     linger,
+    reload,
 )
 from sysdm.file_watcher import watch
 from sysdm.utils import (
@@ -63,7 +64,7 @@ class Sysdm:
         n_msg: Optional[str] = "%i failed on %H",
         n_status_cmd="journalctl {user} --no-pager -n 1000",
         workdir: str = "",
-        env_vars: list[str] = []
+        env_vars: list[str] = [],
     ):
         """
         Create a systemd unit file
@@ -161,7 +162,12 @@ class Sysdm:
                 unit = choose_unit(self.systempath, units)
                 if unit is None:
                     sys.exit()
-                monitor(unit, self.systempath)
+                while True:
+                    action = monitor(unit, self.systempath)
+                    if action == "edit":
+                        self.edit(unit)
+                    elif not action:
+                        break
             else:
                 print("sysdm knows of no units. Why don't you make one? `sysdm create file_i_want_as_service.py`")
                 break
@@ -234,14 +240,6 @@ def file_watch(extensions=[], exclude_patterns=[]):
     :param exclude_patterns: Patterns of files to ignore (by default inferred)
     """
     watch(extensions, exclude_patterns)
-
-
-@cli
-def reload():
-    """
-    Do a daemon-reload for systemd
-    """
-    systemctl("daemon-reload")
 
 
 def choose_unit(systempath, units):

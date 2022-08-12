@@ -4,6 +4,7 @@ import sys
 import time
 import signal
 from blessed import Terminal
+from sysdm.sysctl import reload
 from sysdm.utils import (
     get_output,
     is_unit_running,
@@ -19,14 +20,14 @@ from datetime import datetime, timedelta
 from collections import deque
 
 
-def monitor(unit, systempath):
+def monitor(unit, systempath) -> str | None:
     t = Terminal()
     print(t.enter_fullscreen())
 
     mapping = [
         "[R] Restart service                                                   ",
-        "[S] Stop service                 [j] Journal                           ",
-        "[T] Enable on startup           [b] Back                              ",
+        "[S] Stop service                 [j] Journal                 [e] edit ",
+        "[T] Enable on startup           [b] Back                    [D] reload",
         "[g] Grep (filter) a pattern      [q] Quit view                        ",
     ]
 
@@ -174,6 +175,13 @@ def monitor(unit, systempath):
                     resized = [True]
                 elif inp == "b" or inp.name == "KEY_DELETE":
                     return
+                elif inp == "e":
+                    return "edit"
+                elif inp == "D":
+                    print(t.clear())
+                    print("Reloading daemon")
+                    reload()
+                    resized = [True]
                 elif inp == "j":
                     cmd = "journalctl {u_sep} {u} {g}".format(u=unit, g=g, u_sep=u_sep)
                     os.system(cmd)

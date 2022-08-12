@@ -1,6 +1,7 @@
 import re
 import os
 import sys
+from cliche import cli
 from sysdm.utils import (
     get_output,
     run_quiet,
@@ -106,7 +107,9 @@ def get_service_name(fname_or_cmd):
     return name
 
 
-def create_service_template(fname_or_cmd, notifier, timer, delay, root, killaftertimeout, restart, workdir: str = "", env_vars = []):
+def create_service_template(
+    fname_or_cmd, notifier, timer, delay, root, killaftertimeout, restart, workdir: str = "", env_vars=[]
+):
     here = workdir or os.path.abspath(".")
     fname, extra_args = fname_or_cmd.split()[0], " ".join(fname_or_cmd.split()[1:])
     binary, cmd = get_cmd_from_filename(fname)
@@ -163,9 +166,7 @@ def create_service_template(fname_or_cmd, notifier, timer, delay, root, killafte
     """.replace(
             "\n    ", "\n"
         )
-        .format(
-            **locals()
-        )
+        .format(**locals())
         .strip()
     )
     return service_name, service
@@ -363,6 +364,14 @@ def delete(unit, systempath):
     print("Deleted {}".format(path + "_monitor.service"))
     print("Deleted {}".format(path + ".timer"))
     print("Delete Succeeded!")
+
+
+@cli
+def reload():
+    """
+    Do a daemon-reload for systemd
+    """
+    systemctl("daemon-reload")
 
 
 # if doing start on a bla.timer, then dont do start on the bla.service itself
