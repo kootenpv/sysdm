@@ -18,9 +18,10 @@ from sysdm.utils import (
 
 from datetime import datetime, timedelta
 from collections import deque
+from typing import Optional
 
 
-def monitor(unit, systempath) -> str | None:
+def monitor(unit, systempath) -> Optional[str]:
     t = Terminal()
     print(t.enter_fullscreen())
 
