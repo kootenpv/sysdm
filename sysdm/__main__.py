@@ -154,6 +154,15 @@ class Sysdm:
         show(self.systempath, unit)
 
     @cli
+    def stop_all(self):
+        """Interactively show units and allow viewing them"""
+        units = ls(self.systempath)
+        for unit in units:
+            if is_unit_running(unit):
+                print("Stopping unit", unit)
+                systemctl("stop {}".format(unit))
+
+    @cli
     def ls(self):
         """Interactively show units and allow viewing them"""
         while True:
