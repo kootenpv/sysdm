@@ -276,7 +276,7 @@ def choose_unit(systempath, units):
     default_index = 0
     while True:
         p = Picker(formatted_options, title, default_index=default_index)
-        p.register_custom_handler(ord("q"), lambda _: sys.exit(0))
+        # p.register_custom_handler(ord("q"), lambda _: sys.exit(0))
         chosen, index = p.start()
         if chosen == quit:
             return None
