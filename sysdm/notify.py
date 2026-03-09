@@ -25,6 +25,7 @@ def notify(
     pw: Optional[str] = None,
     msg: Optional[str] = None,
 ):
+    """Send a notification via telegram, yagmail, or notify-send"""
     body = sys.stdin.read()[-2000:]
     if notifier == "telegram":
         import telegram

@@ -3,7 +3,7 @@ from setuptools import setup
 
 MAJOR_VERSION = "0"
 MINOR_VERSION = "8"
-MICRO_VERSION = "66"
+MICRO_VERSION = "67"
 VERSION = "{}.{}.{}".format(MAJOR_VERSION, MINOR_VERSION, MICRO_VERSION)
 
 with open("README.md") as f:
@@ -18,7 +18,7 @@ setup(
     author_email='kootenpv@gmail.com',
     long_description=LONG_DESCRIPTION,
     long_description_content_type="text/markdown",
-    entry_points={'console_scripts': ['sysdm = sysdm.__main__:main']},
+    entry_points={'console_scripts': ['sysdm = sysdm.__main__:main', 'sdm = sysdm._cliche:main']},
     license='MIT',
     install_requires=["inotify", "blessed", "pick", "cliche>=0.6.37"],
     packages=find_packages(),

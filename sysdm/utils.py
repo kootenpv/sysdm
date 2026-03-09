@@ -58,7 +58,9 @@ def is_git_ignored(abspath):
 
 
 def to_sn(fname_or_cmd):
-    return fname_or_cmd.split()[0].split("/")[-1].replace(".", "_")
+    import re
+    name = fname_or_cmd.split()[0].split("/")[-1].replace(".", "_")
+    return re.sub(r"[^a-zA-Z0-9_:-]", "", name)
 
 
 def systemctl(rest):

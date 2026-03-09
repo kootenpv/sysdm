@@ -58,7 +58,7 @@ def monitor(unit, systempath) -> Optional[str]:
                     resized = []
                     timed = is_unit_running(unit + ".timer")
                     is_running = is_unit_running(unit) or timed
-                    is_enabled = is_unit_enabled(unit)
+                    is_enabled = is_unit_enabled(unit) or is_unit_enabled(unit + ".timer")
                     if timed:
                         status = systemctl("list-timers " + unit + ".timer")
                         timer_text = status.split("\n")[1][4 : status.index("LEFT") - 2]
@@ -166,8 +166,10 @@ def monitor(unit, systempath) -> Optional[str]:
                         systemctl("stop {unit}.timer".format(unit=unit))
                     else:
                         print("Starting unit {unit}".format(unit=unit))
-                        systemctl("start --no-block {unit}".format(unit=unit))
-                        systemctl("start {unit}.timer".format(unit=unit))
+                        if timed:
+                            systemctl("start {unit}.timer".format(unit=unit))
+                        else:
+                            systemctl("start --no-block {unit}".format(unit=unit))
                     resized = [True]
                 elif inp == "R":
                     print(t.clear())

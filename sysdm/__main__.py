@@ -11,6 +11,8 @@ from sysdm.sysctl import (
     create_service_monitor_template,
     linger,
     reload,
+    stop_and_disable,
+    print_status_table,
 )
 from sysdm.file_watcher import watch
 from sysdm.utils import (
@@ -27,6 +29,7 @@ from cliche import cli, main
 from sysdm.runner import monitor
 from sysdm.notify import notify, install_notifier_dependencies
 from typing import Optional, Union
+import json as json_module
 
 
 class Sysdm:
@@ -50,7 +53,7 @@ class Sysdm:
         self,
         fname_or_cmd: str,
         restart=True,
-        timer: str = None,
+        timer: list[str] = None,
         killaftertimeout=90,
         delay=0.2,
         extensions=[],
@@ -66,8 +69,7 @@ class Sysdm:
         workdir: str = "",
         env_vars: list[str] = [],
     ):
-        """
-        Create a systemd unit file
+        """Create a systemd unit file
 
         :param fname_or_cmd: File/cmd to run
         :param restart: Whether to prevent auto restart on error
@@ -124,8 +126,7 @@ class Sysdm:
 
     @cli
     def view(self, unit: str):
-        """
-        Monitor a unit
+        """Monitor a unit [interactive]
 
         :param unit: File/cmd/unit to observe. Dots will be replaced with _ automatically
         """
@@ -141,8 +142,7 @@ class Sysdm:
 
     @cli
     def show_unit(self, unit: str = None):
-        """
-        Print out the definition of unit files for a unit
+        """Show the unit file contents [interactive]
 
         :param unit: File/cmd/unit to print unit file. Dots will be replaced with _ automatically
         """
@@ -155,7 +155,7 @@ class Sysdm:
 
     @cli
     def stop_all(self):
-        """Interactively show units and allow viewing them"""
+        """Stop all running sysdm-managed units"""
         units = ls(self.systempath)
         for unit in units:
             if is_unit_running(unit):
@@ -163,10 +163,17 @@ class Sysdm:
                 systemctl("stop {}".format(unit))
 
     @cli
-    def ls(self):
-        """Interactively show units and allow viewing them"""
+    def ls(self, json: bool = False):
+        """List and manage sysdm-managed units [interactive]
+
+        :param json: Output unit data as JSON instead of interactive mode
+        """
+        units = ls(self.systempath)
+        if json:
+            data = get_units_data(self.systempath, units)
+            print(json_module.dumps(data, indent=2))
+            return
         while True:
-            units = ls(self.systempath)
             if units:
                 unit = choose_unit(self.systempath, units)
                 if unit is None:
@@ -182,9 +189,93 @@ class Sysdm:
                 break
 
     @cli
-    def edit(self, unit: str = None):
+    def export(self, unit: str = None):
+        """Export sysdm-managed unit files as JSON
+
+        :param unit: File/cmd/unit to export. When omitted, exports all units.
         """
-        Opens a unit service file for editing
+        units = ls(self.systempath)
+        if not units:
+            print("No sysdm-managed units found.", file=sys.stderr)
+            return
+        if unit is not None:
+            service_name = to_sn(unit)
+            if service_name not in units:
+                print("Unit '{}' not found. Available units:".format(unit), file=sys.stderr)
+                for u in units:
+                    print("  - {}".format(u), file=sys.stderr)
+                sys.exit(1)
+            units = [service_name]
+        data = []
+        for unit_name in units:
+            entry = {"unit": unit_name, "files": {}}
+            suffixes = [".service", "_monitor.service", ".timer"]
+            for suffix in suffixes:
+                fpath = os.path.join(self.systempath, unit_name + suffix)
+                if os.path.exists(fpath):
+                    with open(fpath) as f:
+                        entry["files"][suffix] = f.read()
+            data.append(entry)
+        print(json_module.dumps(data, indent=2))
+
+    @cli
+    def import_units(self, fpath: str, unit: str = None):
+        """Import sysdm unit files from a JSON export
+
+        :param fpath: Path to the JSON file (or - for stdin)
+        :param unit: Only import this specific unit from the export
+        """
+        if fpath == "-":
+            data = json_module.load(sys.stdin)
+        else:
+            with open(fpath) as f:
+                data = json_module.load(f)
+        if unit is not None:
+            service_name = to_sn(unit)
+            data = [e for e in data if e["unit"] == service_name]
+            if not data:
+                print("Unit '{}' not found in export.".format(unit), file=sys.stderr)
+                sys.exit(1)
+        before = {}
+        for entry in data:
+            unit_name = entry["unit"]
+            for s in [unit_name, unit_name + "_monitor", unit_name + ".timer"]:
+                before[s] = (is_unit_enabled(s), is_unit_running(s))
+            stop_and_disable(unit_name)
+            for suffix, content in entry["files"].items():
+                dest = os.path.join(self.systempath, unit_name + suffix)
+                with open(dest, "w") as f:
+                    f.write(content)
+                print("Wrote {}".format(dest))
+        systemctl("daemon-reload")
+        for entry in data:
+            unit_name = entry["unit"]
+            if ".timer" in entry["files"]:
+                systemctl("enable {}.timer".format(unit_name))
+                systemctl("start {}.timer".format(unit_name))
+            else:
+                systemctl("enable {}".format(unit_name))
+                systemctl("start --no-block {}".format(unit_name))
+                if "_monitor.service" in entry["files"]:
+                    systemctl("enable {}_monitor".format(unit_name))
+                    systemctl("start {}_monitor".format(unit_name))
+        rows = []
+        for entry in data:
+            unit_name = entry["unit"]
+            suffixes = {".service": "", "_monitor.service": "_monitor", ".timer": ".timer"}
+            for suffix, sub in suffixes.items():
+                if suffix in entry["files"] or before.get(unit_name + sub, (False, False)) != (False, False):
+                    s = unit_name + sub
+                    be, ba = before[s]
+                    ae = is_unit_enabled(s)
+                    aa = is_unit_running(s)
+                    rows.append((s, be, ba, ae, aa))
+        print_status_table(rows)
+        print("Imported {} unit(s).".format(len(data)))
+
+    @cli
+    def edit(self, unit: str = None):
+        """Edit a unit service file [interactive]
 
         :param unit: File/cmd/unit to edit. When omitted, show choices.
         """
@@ -198,8 +289,7 @@ class Sysdm:
 
     @cli
     def run(self, unit: str = None, debug=False):
-        """
-        Run the command of a unit once
+        """Run a unit's command once [interactive]
 
         :param unit: File/cmd/unit to run.
         :param debug: Use debug on error if available
@@ -223,8 +313,7 @@ class Sysdm:
 
     @cli
     def delete(self, unit: str = None):
-        """
-        Delete a unit
+        """Delete a unit [interactive]
 
         :param unit: File/cmd/unit to delete. When omitted, show choices.
         """
@@ -242,8 +331,7 @@ class Sysdm:
 
 @cli
 def file_watch(extensions=[], exclude_patterns=[]):
-    """
-    Internal use.
+    """Internal: watches files for changes to trigger restarts
 
     :param extensions: Patterns of files to watch (by default inferred)
     :param exclude_patterns: Patterns of files to ignore (by default inferred)
@@ -251,9 +339,31 @@ def file_watch(extensions=[], exclude_patterns=[]):
     watch(extensions, exclude_patterns)
 
 
+def get_units_data(systempath, units):
+    """Get unit data as a list of dictionaries."""
+    ss = get_output("ss -l -p -n 2>/dev/null")
+    ps_aux = get_output("ps ax -o pid,%cpu,%mem,ppid,args -ww")
+    data = []
+    for unit in units:
+        running = is_unit_running(unit) or is_unit_running(unit + ".timer")
+        enabled = is_unit_enabled(unit) or is_unit_enabled(unit + ".timer")
+        ps = read_ps_aux_by_unit(systempath, unit, ps_aux)
+        port = None
+        if ps is not None:
+            pid, *_ = ps
+            port = get_port_from_ps_and_ss(pid, ss) or None
+        data.append({
+            "unit": unit,
+            "active": running,
+            "enabled": enabled,
+            "port": port,
+        })
+    return data
+
+
 def choose_unit(systempath, units):
     options = []
-    ss = get_output("ss -l -p -n")
+    ss = get_output("ss -l -p -n 2>/dev/null")
     ps_aux = get_output("ps ax -o pid,%cpu,%mem,ppid,args -ww")
     for unit in units:
         running = "✓" if is_unit_running(unit) or is_unit_running(unit + ".timer") else "✗"
@@ -266,26 +376,38 @@ def choose_unit(systempath, units):
             port = get_port_from_ps_and_ss(pid, ss)
         options.append((unit, running, enabled, port))
 
-    pad = "{}|    {}    |    {}    |   {}"
-    offset = max([len(x[0]) for x in options]) + 3
-    formatted_options = [pad.format(x.ljust(offset), r, e, p) for x, r, e, p in options]
+    options.sort(key=lambda x: (x[1] != "✓", x[2] != "✓", x[0]))
+
+    offset = max([len(x[0]) for x in options]) + 2
+    port_width = max((len(p) for _, _, _, p in options if p), default=4)
+    port_width = max(port_width, 4)
+    # picker adds 2-char prefix ("* " or "  "), so header needs 2 extra chars
+    header = "  {} │ Active │ On boot │ {}".format("Unit".ljust(offset), "Port".ljust(port_width))
+    sep = "──{}─┼────────┼─────────┼─{}".format("─" * offset, "─" * (port_width + 1))
+    header_row = "{} │ Active │ On boot │ {}".format("Unit".ljust(offset), "Port".ljust(port_width))
+    sep_row = "{}─┼────────┼─────────┼─{}".format("─" * offset, "─" * (port_width + 1))
+    formatted_options = [header_row, sep_row]
+    for x, r, e, p in options:
+        formatted_options.append(
+            "{} │   {}    │    {}    │ {}".format(x.ljust(offset), r, e, p.ljust(port_width))
+        )
     quit = "-- Quit --"
     formatted_options.append(" ")
     formatted_options.append(quit)
-    title = "These are known units:\n\n{}| Active  | On boot |   Port".format(" " * (offset + 2))
-    default_index = 0
+    title = "These are known units:"
+    # first 2 rows are header/separator, start selection on first real unit
+    default_index = 2
     while True:
-        p = Picker(formatted_options, title, default_index=default_index)
-        # p.register_custom_handler(ord("q"), lambda _: sys.exit(0))
+        p = Picker(formatted_options, title, default_index=default_index, quit_keys=[ord("q")])
         chosen, index = p.start()
-        if chosen == quit:
+        if chosen is None or chosen == quit:
             return None
-        elif chosen == " ":
+        elif chosen in (" ", header_row, sep_row):
             default_index = index
             continue
         else:
             break
-    return units[index]
+    return units[index - 2]
 
 
 if __name__ == "__main__":
