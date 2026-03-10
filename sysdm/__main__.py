@@ -407,7 +407,7 @@ def choose_unit(systempath, units):
             continue
         else:
             break
-    return units[index - 2]
+    return options[index - 2][0]
 
 
 if __name__ == "__main__":
