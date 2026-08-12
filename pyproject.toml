@@ -1,3 +1,23 @@
 [build-system]
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "sysdm"
+version = "0.8.67"
+description = "Scripts as a service. Builds on systemd."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Pascal van Kooten", email = "kootenpv@gmail.com" }]
+dependencies = ["inotify", "blessed", "textual", "cliche"]
+
+[project.urls]
+Homepage = "https://github.com/kootenpv/sysdm"
+
+[project.scripts]
+sdm = "cliche.launcher:launch_sysdm"
+sysdm = "cliche.launcher:launch_sysdm"
+
+[tool.setuptools]
+packages = ["sysdm"]

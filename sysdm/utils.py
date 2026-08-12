@@ -31,26 +31,91 @@ def read_command_from_unit(systempath, service_name):
                 return line[10:].strip()
 
 
-def read_ps_aux_by_unit(systempath, unit, ps_aux):
+def batch_systemctl_show(units, properties):
+    """Query multiple properties for multiple units in a single systemctl show call.
+
+    Returns dict of {unit: {property: value}}. Output blocks are separated by blank
+    lines and appear in the same order as the input units.
+    """
+    if not units:
+        return {}
+    cmd = "sudo systemctl " if IS_SUDO else "systemctl --user "
+    cmd += "show --no-pager"
+    for p in properties:
+        cmd += " -p " + p
+    for u in units:
+        cmd += " " + u
+    out = run_quiet(cmd)
+    blocks = out.split("\n\n")
+    result = {}
+    for unit, block in zip(units, blocks):
+        info = {}
+        for line in block.split("\n"):
+            if "=" in line:
+                k, v = line.split("=", 1)
+                info[k] = v
+        result[unit] = info
+    return result
+
+
+def read_ps_aux_by_unit(systempath, unit, ps_aux, main_pid=None):
+    # Get MainPID from systemd — reliable regardless of how the process appears in ps
+    if main_pid is None:
+        main_pid = systemctl("show {} -p MainPID --value".format(unit)).strip()
+    if main_pid and main_pid != "0":
+        for num, line in enumerate(ps_aux.split("\n")):
+            if num == 0:
+                continue
+            parts = line.split()
+            if len(parts) >= 3 and parts[0] == main_pid:
+                return parts[0], parts[1], parts[2]
+    # Fallback: match by command
     cmd = read_command_from_unit(systempath, unit)
     for num, line in enumerate(ps_aux.split("\n")):
         if num == 0:
             continue
         pid, cpu, mem, ppid, *rest = line.split()
-        # # I think this was here because of sudo?
-        # if ppid != "1":
-        #     continue
         rest = " ".join(rest)
-        if cmd.endswith(rest) or rest.endswith(cmd):
+        if cmd and (cmd.endswith(rest) or rest.endswith(cmd)):
             return pid, cpu, mem
 
 
-def get_port_from_ps_and_ss(pid, ss):
-    result = None
+def get_child_pids(pid, ps_aux):
+    """Get all descendant PIDs of a given PID."""
+    children = {}
+    for num, line in enumerate(ps_aux.split("\n")):
+        if num == 0:
+            continue
+        parts = line.split()
+        if len(parts) >= 4:
+            children.setdefault(parts[3], []).append(parts[0])
+    result = set()
+    queue = [pid]
+    while queue:
+        p = queue.pop()
+        for child in children.get(p, []):
+            if child not in result:
+                result.add(child)
+                queue.append(child)
+    return result
+
+
+def get_port_from_ps_and_ss(pid, ss, ps_aux=None):
+    pids = {pid}
+    if ps_aux:
+        pids |= get_child_pids(pid, ps_aux)
+    results = []
     for line in ss.split("\n"):
-        if "," + pid + "," in line or "pid=" + pid + "," in line:
-            result = line.split()[4]
-    return result or ""
+        for p in pids:
+            if "," + p + "," in line or "pid=" + p + "," in line:
+                results.append(line.split()[4])
+    if not results:
+        return ""
+    # Prefer IPv4 over IPv6
+    for r in results:
+        if not r.startswith("["):
+            return r
+    return results[0]
 
 
 def is_git_ignored(abspath):

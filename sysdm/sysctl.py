@@ -90,11 +90,11 @@ def get_extensions_from_filename(fname):
 def get_exclusions_from_filename(fname):
     cmd = []
     if fname.endswith(".py"):
-        cmd = ["flycheck_", "$", ".vim", "'#'", ".swp"]
+        cmd = ["flycheck_", ".vim", ".swp"]
     elif fname.endswith(".sh"):
         cmd = []
     elif fname.endswith(".js"):
-        cmd = ["flycheck_", "$", ".vim", "'#'", ".swp"]
+        cmd = ["flycheck_", ".vim", ".swp"]
     return cmd
 
 
@@ -107,7 +107,8 @@ def get_service_name(fname_or_cmd):
 
 
 def create_service_template(
-    fname_or_cmd, notifier, timer, delay, root, killaftertimeout, restart, workdir: str = "", env_vars=[]
+    fname_or_cmd, notifier, timer, delay, root, killaftertimeout, restart, workdir: str = "", env_vars=[],
+    unit_name: str = "",
 ):
     here = workdir or os.path.abspath(".")
     fname, extra_args = fname_or_cmd.split()[0], " ".join(fname_or_cmd.split()[1:])
@@ -119,8 +120,11 @@ def create_service_template(
         cmd = '/bin/bash -c "' + escaped + '"'
         binary = True
         extra_args = ""
-    service_name = get_service_name(fname_or_cmd) + "_" + here.split("/")[-1] if binary else fname
-    service_name = to_sn(service_name)
+    if unit_name:
+        service_name = to_sn(unit_name)
+    else:
+        service_name = get_service_name(fname_or_cmd) + "_" + here.split("/")[-1] if binary else fname
+        service_name = to_sn(service_name)
     fname = fname + " "
     start_info = ""
     # other binary
@@ -141,7 +145,7 @@ def create_service_template(
         part_of = ""
     else:
         service_type = "simple"
-        start_info = "StartLimitBurst=2\nStartLimitIntervalSec=15s" if restart else ""
+        start_info = "StartLimitBurst=5\nStartLimitIntervalSec=30s" if restart else ""
         restart = "Restart=always\nRestartSec={delay}".format(delay=delay) if restart else ""
         part_of = "PartOf={service_name}_monitor.service".format(service_name=service_name)
     user_and_group = user_and_group_if_sudo(root)
@@ -241,7 +245,7 @@ def create_service_monitor_template(service_name, fname_or_cmd, extensions, excl
     extensions = "--extensions " + " ".join(extensions) if extensions else ""
     exclude_patterns = exclude_patterns or get_exclusions_from_filename(fname)
     exclude_patterns = " ".join(exclude_patterns)
-    exclude_patterns = "--exclude_patterns " + exclude_patterns if exclude_patterns else ""
+    exclude_patterns = "--exclude-patterns " + exclude_patterns if exclude_patterns else ""
     user_and_group = user_and_group_if_sudo(root)
     wanted_by = "multi-user.target" if user_and_group.strip() else "default.target"
     service = (
@@ -254,9 +258,9 @@ def create_service_monitor_template(service_name, fname_or_cmd, extensions, excl
     {user_and_group}
     Type=simple
     Restart=always
-    RestartSec=0
+    RestartSec=1
     Environment="PYTHONUNBUFFERED=on"
-    ExecStart={cmd} file_watch {extensions} {exclude_patterns}
+    ExecStart={cmd} file-watch {extensions} {exclude_patterns}
     WorkingDirectory={here}
 
     [Install]

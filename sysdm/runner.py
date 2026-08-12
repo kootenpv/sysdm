@@ -26,7 +26,7 @@ def monitor(unit, systempath) -> Optional[str]:
     print(t.enter_fullscreen())
 
     mapping = [
-        "[R] Restart service                                                   ",
+        "[R] Restart service              [M] Monitor (unit)                   ",
         "[S] Stop service                 [j] Journal                 [e] edit ",
         "[T] Enable on startup           [b] Back                    [D] reload",
         "[g] Grep (filter) a pattern      [q] Quit view                        ",
@@ -119,7 +119,7 @@ def monitor(unit, systempath) -> Optional[str]:
                     outp = []
                     for line in output.split("\n"):
                         # replace e.g. python[pidnum123]: real output
-                        line = re.sub("(?<=:\d\d ).+?\[\d+\]: ", "| ", line)
+                        line = re.sub(r"(?<=:\d\d ).+?\[\d+\]: ", "| ", line)
                         if grep:
                             rmatch = re.search(grep, line)
                             if rmatch is not None:
@@ -174,12 +174,19 @@ def monitor(unit, systempath) -> Optional[str]:
                 elif inp == "R":
                     print(t.clear())
                     print("Restarting unit {unit}".format(unit=unit))
-                    systemctl("restart {unit}".format(unit=unit))
+                    systemctl("restart --no-block {unit}".format(unit=unit))
                     resized = [True]
                 elif inp == "b" or inp.name == "KEY_DELETE":
                     return
                 elif inp == "e":
                     return "edit"
+                elif inp == "M":
+                    monitor_unit = unit + "_monitor"
+                    monitor_file = os.path.join(systempath, monitor_unit + ".service")
+                    if os.path.exists(monitor_file):
+                        monitor(monitor_unit, systempath)
+                        print(t.enter_fullscreen())
+                        resized = [True]
                 elif inp == "D":
                     print(t.clear())
                     print("Reloading daemon")
