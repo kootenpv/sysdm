@@ -81,7 +81,10 @@ def get_extensions_from_filename(fname):
     if "." in fname.split("/")[-1]:
         cmd = ["." + fname.split(".")[-1]]
     elif os.path.isfile(fname):
-        cmd = [fname]
+        # An extensionless file (e.g. a compiled binary): match on its basename.
+        # Emitting the full path here produced an --extensions value that could
+        # never match, since the watcher compares against bare filenames.
+        cmd = [os.path.basename(fname)]
     elif contains_python(fname):
         cmd = [".py"]
     return cmd
@@ -365,15 +368,24 @@ def ls(systempath):
 
 
 def stop_and_disable(unit_name):
-    """Stop and disable a unit's services. Returns list of (name, before_enabled, before_active, after_enabled, after_active)."""
+    """Stop and disable a unit's services. Returns list of (name, before_enabled, before_active, after_enabled, after_active).
+
+    Stop comes before disable: a unit with Restart=always keeps respawning after
+    being disabled (disable only drops the .wants symlinks, which affect the next
+    boot), so disabling first leaves a window for it to restart. Both are issued
+    unconditionally rather than gated on the 'before' state, because a crash-looping
+    unit reports 'activating' rather than 'active' and would otherwise never be
+    stopped at all.
+    """
     rows = []
-    for s in [unit_name, unit_name + "_monitor", unit_name + ".timer"]:
+    units = [unit_name, unit_name + "_monitor", unit_name + ".timer"]
+    for s in units:
         before_enabled = is_unit_enabled(s)
         before_active = is_unit_running(s)
-        if before_enabled:
-            systemctl("disable {}".format(s))
-        if before_active:
-            systemctl("stop {}".format(s))
+        systemctl("stop {} 2> /dev/null".format(s))
+        systemctl("disable {} 2> /dev/null".format(s))
+        # Clear any failed state so the unit does not linger in systemd's list.
+        systemctl("reset-failed {} 2> /dev/null".format(s))
         after_enabled = is_unit_enabled(s)
         after_active = is_unit_running(s)
         rows.append((s, before_enabled, before_active, after_enabled, after_active))
@@ -408,11 +420,24 @@ def print_status_table(rows):
 def delete(unit, systempath):
     service_name = unit.replace(".", "_")
     path = systempath + "/" + service_name
+    # Order matters: stop+disable, then remove the unit files, then daemon-reload.
+    # Reloading before the files are gone leaves systemd holding units it can no
+    # longer manage by name (UnitFileState=bad, still active).
     rows = stop_and_disable(service_name)
-    print_status_table(rows)
-    _ = systemctl("daemon-reload")
     for suffix in [".service", "_monitor.service", ".timer"]:
-        run_quiet("rm {}".format(path + suffix))
+        run_quiet("rm -f {}".format(path + suffix))
+    systemctl("daemon-reload")
+    # Re-read state after the reload so the table reflects reality, not the
+    # transient state observed mid-restart while the units still existed.
+    rows = [
+        (name, be, ba, is_unit_enabled(name), is_unit_running(name))
+        for name, be, ba, _, _ in rows
+    ]
+    print_status_table(rows)
+    leftover = [name for name, _, _, ae, aa in rows if ae or aa]
+    if leftover:
+        print("WARNING: still present after delete: {}".format(", ".join(leftover)))
+        return
     print("Delete Succeeded!")
 
 

@@ -12,6 +12,14 @@ EXCLUDED_DIRS = [
     "target", "__pycache__", ".pytest_cache", ".mypy_cache",
     "node_modules", ".git", ".venv", "venv", ".tox", "dist", "build",
 ]
+EXCLUDED_DIR_SET = frozenset(EXCLUDED_DIRS)
+
+# Recursively watching one of these means watching effectively the whole machine.
+# It is always a misconfiguration (usually a unit generated with the wrong
+# WorkingDirectory) and costs a full tree walk plus an inotify watch per directory.
+UNWATCHABLE_ROOTS = frozenset(
+    [os.path.expanduser("~"), "/", "/home", "/tmp", "/var", "/etc", "/usr"]
+)
 
 WATCH_MASK = (
     inotify.constants.IN_CLOSE_WRITE  # Direct writes (vim, nano)
@@ -33,6 +41,37 @@ def _should_exclude_path(path):
     )
 
 
+def _build_watcher(root):
+    """Create an Inotify watching `root` recursively, pruning excluded and
+    unreadable directories *during* the walk.
+
+    InotifyTree() is deliberately not used: it descends into every directory
+    (node_modules, .git, .venv and friends included) before any filtering can
+    happen, and a single unreadable directory makes its constructor raise
+    PermissionError. Pruning here keeps both the walk and the kernel-side watch
+    table proportional to the code actually being watched.
+    """
+    i = inotify.adapters.Inotify(block_duration_s=1)
+    watched = 0
+    skipped = 0
+    for dirpath, dirnames, _ in os.walk(root, topdown=True, onerror=None):
+        # topdown=True: mutating dirnames in place prunes the walk itself.
+        dirnames[:] = [d for d in dirnames if d not in EXCLUDED_DIR_SET]
+        try:
+            i.add_watch(dirpath, WATCH_MASK)
+            watched += 1
+        except (OSError, inotify.calls.InotifyError):
+            # Unreadable, vanished mid-walk, or watch limit hit; skip this subtree
+            # rather than taking down the whole watcher.
+            dirnames[:] = []
+            skipped += 1
+    msg = "Watching {n} directories under '{root}'".format(n=watched, root=root)
+    if skipped:
+        msg += " ({s} skipped as unreadable)".format(s=skipped)
+    print(msg)
+    return i
+
+
 def _extract_offending_path():
     tb = sys.exc_info()[2]
     while tb is not None:
@@ -49,12 +88,31 @@ def watch(extensions, exclude_patterns):
         return
 
     extensions = [extensions] if isinstance(extensions, str) else extensions
+
+    # An extension containing a path separator can never match a bare filename,
+    # so the watcher would run forever without ever firing. This shows up when a
+    # generator passes the ExecStart binary path into the extensions slot.
+    bad = [x for x in extensions if "/" in x]
+    if bad:
+        print(
+            "ERROR: not an extension: {}. Expected suffixes like '.py', "
+            "not paths; refusing to watch.".format(", ".join(repr(b) for b in bad))
+        )
+        return
+
+    if current_dir.rstrip("/") in UNWATCHABLE_ROOTS or current_dir == "/":
+        print(
+            "ERROR: refusing to recursively watch '{}'. This is almost certainly a "
+            "wrong WorkingDirectory in the unit file.".format(current_dir)
+        )
+        return
+
     exclude_patterns = list(exclude_patterns or [])
     exclude_patterns.append("flycheck")
 
-    print("Watching directory '{}' (recursive) for changes in '{}'".format(current_dir, extensions))
+    print("Watching '{}' (recursive) for changes in '{}'".format(current_dir, extensions))
 
-    tree = inotify.adapters.InotifyTree(current_dir, mask=WATCH_MASK, block_duration_s=1)
+    tree = _build_watcher(current_dir)
     started_at = time.monotonic()
 
     while True:
@@ -76,15 +134,17 @@ def watch(extensions, exclude_patterns):
                         continue
                     print("File '{filename}' changed in '{path}', restarting service".format(filename=filename, path=path))
                     sys.exit(0)
-        except inotify.calls.InotifyError as e:
+        except (inotify.calls.InotifyError, OSError) as e:
+            # OSError covers PermissionError from a directory that became
+            # unreadable, which is not an InotifyError and previously escaped
+            # this handler and killed the process.
             offending = _extract_offending_path()
             if _should_exclude_path(offending):
                 continue
             print("Inotify error on '{}': {} - reinitializing watcher".format(offending, e))
-            if not os.path.exists(current_dir):
-                while not os.path.exists(current_dir):
-                    time.sleep(0.1)
-            tree = inotify.adapters.InotifyTree(current_dir, mask=WATCH_MASK, block_duration_s=1)
+            while not os.path.exists(current_dir):
+                time.sleep(0.1)
+            tree = _build_watcher(current_dir)
             started_at = time.monotonic()
             time.sleep(0.1)
         except KeyboardInterrupt:
