@@ -1,22 +1,20 @@
 """ File unrelated to the package, except for convenience in deploying """
-import re
-import sh
 import os
+import re
+import subprocess
 
-commit_count = sh.git("rev-list", ["--all"]).count("\n")
+# Micro version is the commit count, so the published version always maps to a commit.
+commit_count = subprocess.check_output(["git", "rev-list", "--all", "--count"]).decode().strip()
 
-with open("setup.py") as f:
-    setup = f.read()
+with open("pyproject.toml") as f:
+    pyproject = f.read()
 
-setup = re.sub('MICRO_VERSION = "[0-9]+"', 'MICRO_VERSION = "{}"'.format(commit_count), setup)
+major, minor, _ = re.search(r'^version = "(\d+)\.(\d+)\.(\d+)"', pyproject, re.M).groups()
+version = "{}.{}.{}".format(major, minor, commit_count)
 
-major = re.search('MAJOR_VERSION = "([0-9]+)"', setup).groups()[0]
-minor = re.search('MINOR_VERSION = "([0-9]+)"', setup).groups()[0]
-micro = re.search('MICRO_VERSION = "([0-9]+)"', setup).groups()[0]
-version = "{}.{}.{}".format(major, minor, micro)
-
-with open("setup.py", "w") as f:
-    f.write(setup)
+pyproject = re.sub(r'^version = "[0-9.]+"', 'version = "{}"'.format(version), pyproject, count=1, flags=re.M)
+with open("pyproject.toml", "w") as f:
+    f.write(pyproject)
 
 with open("sysdm/__init__.py") as f:
     init = f.read()
@@ -24,6 +22,10 @@ with open("sysdm/__init__.py") as f:
 with open("sysdm/__init__.py", "w") as f:
     f.write(re.sub('__version__ = "[0-9.]+"', '__version__ = "{}"'.format(version), init))
 
+print("Building {}".format(version))
 os.system("rm -rf dist/")
-os.system("python setup.py sdist bdist_wheel")
+if os.system("python -m build") != 0:
+    raise SystemExit("build failed")
+if os.system("twine check dist/*") != 0:
+    raise SystemExit("twine check failed")
 os.system("twine upload dist/*")
