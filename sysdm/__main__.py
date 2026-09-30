@@ -186,6 +186,20 @@ def ls(json: bool = False, systempath: str = None):
         data = get_units_data(systempath, units)
         print(json_module.dumps(data, indent=2))
         return
+    # Not in a terminal (a pipe, a script, an agent's shell): the interactive picker cannot
+    # work there -- run as `sysdm ls | grep ...` from Claude Code, Textual busy-looped on the
+    # closed stdin at 100% CPU for a week. Print a plain list instead: unit, state, startup.
+    if not (sys.stdin.isatty() and sys.stdout.isatty()):
+        if not units:
+            print("sysdm knows of no units.", file=sys.stderr)
+            return
+        info = gather_unit_info(systempath, units)
+        for unit in units:
+            u, t = info.get(unit, {}), info.get(unit + ".timer", {})
+            running = u.get("ActiveState") == "active" or t.get("ActiveState") == "active"
+            enabled = u.get("UnitFileState") == "enabled" or t.get("UnitFileState") == "enabled"
+            print("{}\t{}\t{}".format(unit, "running" if running else "stopped", "enabled" if enabled else "disabled"))
+        return
     while True:
         if units:
             unit = choose_unit(systempath, units)
